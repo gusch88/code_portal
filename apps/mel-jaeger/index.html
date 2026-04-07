@@ -1,0 +1,526 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MEL Jäger</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:wght@400;500&family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0d0d0f; --surface: #16181c; --surface2: #1e2028;
+    --border: #2a2d38; --accent: #f5c518; --accent2: #e8a800;
+    --text: #f0f0f2; --muted: #7a7f8e; --plate-bg: #f7f3e8;
+    --plate-text: #111; --plate-border: #222; --red: #ef4444;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: 'DM Sans', sans-serif; min-height: 100vh; overflow-x: hidden; }
+  body::before {
+    content: ''; position: fixed; inset: 0;
+    background-image: linear-gradient(rgba(245,197,24,0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(245,197,24,0.03) 1px, transparent 1px);
+    background-size: 40px 40px; pointer-events: none; z-index: 0;
+  }
+
+  /* ── NAV ── */
+  nav {
+    position: sticky; top: 0; z-index: 50;
+    background: rgba(13,13,15,0.92); backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; gap: 16px; padding: 0 24px; height: 56px;
+  }
+  .nav-back {
+    background: var(--surface2); border: 1px solid var(--border); color: var(--muted);
+    border-radius: 7px; padding: 6px 12px; font-size: 0.8rem; cursor: pointer;
+    text-decoration: none; transition: all 0.15s; display: flex; align-items: center; gap: 6px;
+  }
+  .nav-back:hover { border-color: var(--accent); color: var(--accent); }
+  .nav-title { font-family: 'Bebas Neue', sans-serif; font-size: 1.4rem; letter-spacing: 3px; }
+  .nav-title span { color: var(--accent); }
+  .nav-user { margin-left: auto; font-size: 0.75rem; color: var(--muted); font-family: 'DM Mono', monospace; }
+
+  /* ── LOADING ── */
+  .loading-screen {
+    position: fixed; inset: 0; background: var(--bg);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 200; font-family: 'Bebas Neue', sans-serif;
+    font-size: 1.2rem; letter-spacing: 3px; color: var(--muted);
+  }
+  .loading-screen.hidden { display: none; }
+
+  /* ── MAIN ── */
+  .container { max-width: 860px; margin: 0 auto; padding: 28px 20px 60px; position: relative; z-index: 1; }
+
+  /* STATS */
+  .stats-bar { display: flex; gap: 14px; flex-wrap: wrap; margin-bottom: 24px; }
+  .stat-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 14px 18px; flex: 1; min-width: 110px; }
+  .stat-value { font-family: 'Bebas Neue', sans-serif; font-size: 2rem; color: var(--accent); line-height: 1; }
+  .stat-label { font-size: 0.72rem; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; margin-top: 2px; }
+
+  /* INPUT */
+  .input-section { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 22px; margin-bottom: 24px; }
+  .section-title { font-family: 'Bebas Neue', sans-serif; font-size: 1.15rem; letter-spacing: 2px; color: var(--muted); margin-bottom: 16px; }
+
+  /* PLATE */
+  .plate-preview-row { display: flex; align-items: center; gap: 16px; margin-bottom: 20px; flex-wrap: wrap; }
+  .plate { display: inline-flex; align-items: center; background: var(--plate-bg); border: 3px solid var(--plate-border); border-radius: 8px; padding: 6px 14px 6px 8px; gap: 8px; box-shadow: 0 3px 12px rgba(0,0,0,0.4); min-height: 54px; }
+  .plate-eu-strip { background: #003399; border-radius: 4px 0 0 4px; width: 28px; min-height: 42px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; padding: 4px 0; flex-shrink: 0; }
+  .plate-eu-stars { font-size: 7px; color: gold; line-height: 1; }
+  .plate-eu-d { color: #fff; font-size: 9px; font-weight: 700; font-family: 'DM Mono', monospace; }
+  .plate-text { font-family: 'DM Mono', monospace; font-weight: 500; font-size: 1.5rem; color: var(--plate-text); letter-spacing: 2px; white-space: nowrap; }
+  .plate-text .region { font-weight: 700; }
+
+  /* FORM */
+  .form-row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 13px; margin-bottom: 14px; }
+  @media (max-width: 600px) { .form-row { grid-template-columns: 1fr 1fr; } }
+  .field { display: flex; flex-direction: column; gap: 5px; }
+  label { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 1.5px; color: var(--muted); }
+  input, select { background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; color: var(--text); padding: 10px 13px; font-family: 'DM Mono', monospace; font-size: 0.9rem; outline: none; transition: border-color 0.2s; width: 100%; }
+  input:focus, select:focus { border-color: var(--accent); }
+  input::placeholder { color: var(--muted); }
+  select option { background: var(--surface2); }
+  .btn-add { background: var(--accent); color: #000; border: none; border-radius: 8px; padding: 12px; font-family: 'Bebas Neue', sans-serif; font-size: 1.05rem; letter-spacing: 2px; cursor: pointer; transition: background 0.15s, transform 0.1s; width: 100%; }
+  .btn-add:hover { background: var(--accent2); }
+  .btn-add:active { transform: scale(0.98); }
+  .btn-add:disabled { opacity: 0.5; cursor: not-allowed; }
+  .error-msg { color: var(--red); font-size: 0.8rem; margin-top: -6px; display: none; }
+  .error-msg.show { display: block; }
+
+  /* GAMIFICATION */
+  .game-row { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; margin-bottom: 24px; }
+  @media (max-width: 640px) { .game-row { grid-template-columns: 1fr; } }
+  .section-block { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 20px 22px; }
+
+  /* ACHIEVEMENTS */
+  .achievements-grid { display: flex; flex-direction: column; gap: 7px; margin-top: 4px; }
+  .badge { display: flex; align-items: center; gap: 10px; background: var(--surface2); border: 1px solid var(--border); border-radius: 9px; padding: 9px 11px; position: relative; overflow: hidden; transition: border-color 0.2s; }
+  .badge.unlocked { border-color: rgba(245,197,24,0.4); background: rgba(245,197,24,0.05); }
+  .badge.unlocked::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px; background: linear-gradient(90deg, var(--accent), var(--accent2)); }
+  .badge-icon { font-size: 1.3rem; flex-shrink: 0; filter: grayscale(1) opacity(0.2); transition: filter 0.3s; }
+  .badge.unlocked .badge-icon { filter: none; }
+  .badge-info { flex: 1; min-width: 0; }
+  .badge-name { font-size: 0.78rem; font-weight: 600; color: var(--muted); transition: color 0.2s; }
+  .badge.unlocked .badge-name { color: var(--text); }
+  .badge-desc { font-size: 0.67rem; color: var(--muted); margin-top: 1px; opacity: 0.6; }
+  .badge-check { font-size: 0.72rem; color: var(--accent); display: none; }
+  .badge.unlocked .badge-check { display: block; }
+  @keyframes badgePop { 0%{transform:scale(1)} 40%{transform:scale(1.07)} 100%{transform:scale(1)} }
+  .badge.just-unlocked { animation: badgePop 0.4s ease; }
+
+  /* BRAND RANKING */
+  .brand-ranking { display: flex; flex-direction: column; gap: 8px; margin-top: 4px; }
+  .brand-row { display: flex; align-items: center; gap: 10px; }
+  .brand-rank { font-family: 'Bebas Neue', sans-serif; font-size: 1rem; color: var(--muted); width: 18px; text-align: center; flex-shrink: 0; }
+  .brand-row:nth-child(1) .brand-rank { color: #ffd700; }
+  .brand-row:nth-child(2) .brand-rank { color: #c0c0c0; }
+  .brand-row:nth-child(3) .brand-rank { color: #cd7f32; }
+  .brand-name { font-size: 0.82rem; font-weight: 600; width: 70px; flex-shrink: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .brand-bar-wrap { flex: 1; background: var(--surface2); border-radius: 999px; height: 6px; overflow: hidden; }
+  .brand-bar-fill { height: 100%; background: linear-gradient(90deg, var(--accent), var(--accent2)); border-radius: 999px; transition: width 0.5s cubic-bezier(.4,0,.2,1); }
+  .brand-count { font-family: 'DM Mono', monospace; font-size: 0.76rem; color: var(--accent); width: 22px; text-align: right; flex-shrink: 0; }
+  .brand-empty { color: var(--muted); font-size: 0.83rem; font-style: italic; }
+
+  /* TOOLBAR */
+  .toolbar { display: flex; gap: 10px; margin-bottom: 18px; flex-wrap: wrap; }
+  .search-input { flex: 1; min-width: 160px; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; color: var(--text); padding: 8px 13px; font-family: 'DM Mono', monospace; font-size: 0.88rem; outline: none; transition: border-color 0.2s; }
+  .search-input:focus { border-color: var(--accent); }
+  .filter-btn { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; color: var(--muted); padding: 8px 14px; font-family: 'DM Sans', sans-serif; font-size: 0.82rem; cursor: pointer; transition: all 0.15s; white-space: nowrap; }
+  .filter-btn.active { background: var(--accent); color: #000; border-color: var(--accent); }
+
+  /* LIST */
+  .list-header { font-family: 'Bebas Neue', sans-serif; font-size: 1.05rem; letter-spacing: 2px; color: var(--muted); margin-bottom: 10px; display: flex; align-items: center; justify-content: space-between; }
+  .entries-grid { display: flex; flex-direction: column; gap: 9px; }
+  .entry-card { background: var(--surface); border: 1px solid var(--border); border-radius: 11px; padding: 12px 16px; display: flex; align-items: center; gap: 14px; animation: slideIn 0.22s ease; transition: border-color 0.2s; }
+  .entry-card:hover { border-color: rgba(245,197,24,0.3); }
+  @keyframes slideIn { from{opacity:0;transform:translateY(-6px)} to{opacity:1;transform:translateY(0)} }
+  .entry-plate { flex-shrink: 0; }
+  .entry-plate .plate { min-height: 40px; padding: 3px 9px 3px 5px; }
+  .entry-plate .plate-eu-strip { min-height: 32px; width: 20px; }
+  .entry-plate .plate-text { font-size: 0.95rem; }
+  .entry-info { flex: 1; display: flex; flex-direction: column; gap: 2px; }
+  .entry-model { font-weight: 600; font-size: 0.9rem; }
+  .entry-meta { font-size: 0.75rem; color: var(--muted); display: flex; gap: 10px; flex-wrap: wrap; }
+  .entry-date { margin-left: auto; font-size: 0.72rem; color: var(--muted); font-family: 'DM Mono', monospace; white-space: nowrap; align-self: flex-start; }
+  .btn-delete { background: none; border: none; color: var(--muted); cursor: pointer; font-size: 1rem; padding: 4px 6px; border-radius: 5px; transition: color 0.15s, background 0.15s; }
+  .btn-delete:hover { color: var(--red); background: rgba(239,68,68,0.1); }
+  .empty-state { text-align: center; padding: 44px 20px; color: var(--muted); }
+  .empty-icon { font-size: 2.8rem; margin-bottom: 10px; opacity: 0.35; }
+
+  /* TOAST */
+  .toast { position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%) translateY(70px); background: var(--accent); color: #000; padding: 11px 24px; border-radius: 999px; font-family: 'Bebas Neue', sans-serif; font-size: 0.95rem; letter-spacing: 2px; z-index: 999; transition: transform 0.3s cubic-bezier(.4,0,.2,1); white-space: nowrap; }
+  .toast.show { transform: translateX(-50%) translateY(0); }
+</style>
+</head>
+<body>
+
+<div class="loading-screen" id="loadingScreen">Lade MEL Jäger…</div>
+
+<nav>
+  <a class="nav-back" href="../../index.html">← Portal</a>
+  <div class="nav-title"><span>MEL</span> Jäger</div>
+  <div class="nav-user" id="navUser"></div>
+</nav>
+
+<div class="container">
+  <!-- Stats -->
+  <div class="stats-bar">
+    <div class="stat-card"><div class="stat-value" id="statTotal">0</div><div class="stat-label">Gesammelt</div></div>
+    <div class="stat-card"><div class="stat-value" id="statToday">0</div><div class="stat-label">Heute</div></div>
+    <div class="stat-card"><div class="stat-value" id="statHighest">–</div><div class="stat-label">Höchste Nr.</div></div>
+    <div class="stat-card"><div class="stat-value" id="statBrands">0</div><div class="stat-label">Marken</div></div>
+  </div>
+
+  <!-- Input -->
+  <div class="input-section">
+    <div class="section-title">Neues Kennzeichen</div>
+    <div class="plate-preview-row">
+      <div class="plate">
+        <div class="plate-eu-strip">
+          <div class="plate-eu-stars">★★★<br>★ ★<br>★★★</div>
+          <div class="plate-eu-d">D</div>
+        </div>
+        <div class="plate-text"><span class="region">MEL · LE</span> · <span id="prevNum">???</span></div>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="field">
+        <label>Nummer</label>
+        <input type="number" id="inputNum" placeholder="z.B. 142" min="1" max="9999">
+      </div>
+      <div class="field">
+        <label>Marke</label>
+        <select id="inputBrand" onchange="updateModels()">
+          <option value="">– Marke wählen –</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Modell / Fabrikat</label>
+        <select id="inputModel" disabled>
+          <option value="">– erst Marke wählen –</option>
+        </select>
+      </div>
+    </div>
+    <div class="error-msg" id="errorMsg"></div>
+    <button class="btn-add" id="btnAdd" onclick="addEntry()">+ Kennzeichen Erfassen</button>
+  </div>
+
+  <!-- Gamification -->
+  <div class="game-row">
+    <div class="section-block">
+      <div class="section-title">Achievements</div>
+      <div class="achievements-grid" id="achievementsGrid"></div>
+    </div>
+    <div class="section-block">
+      <div class="section-title">Marken-Rangliste</div>
+      <div class="brand-ranking" id="brandRanking"></div>
+    </div>
+  </div>
+
+  <!-- Toolbar -->
+  <div class="toolbar">
+    <input type="text" class="search-input" id="searchInput" placeholder="🔍 Suchen…" oninput="renderList()">
+    <button class="filter-btn active" onclick="setFilter('all',this)">Alle</button>
+    <button class="filter-btn" onclick="setFilter('today',this)">Heute</button>
+    <button class="filter-btn" onclick="setFilter('recent',this)">Diese Woche</button>
+  </div>
+
+  <div class="list-header">
+    <span>Gesammelte Kennzeichen</span>
+    <span id="listCount" style="font-size:0.82rem;color:var(--muted)"></span>
+  </div>
+  <div class="entries-grid" id="entriesGrid"></div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+  // ── Supabase Init ──────────────────────────────────────────
+  const SUPABASE_URL  = 'https://xtbnrrhzhcvcetsdsfao.supabase.co';
+  const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh0Ym5ycmh6aGN2Y2V0c2RzZmFvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUxMjgzNTIsImV4cCI6MjA5MDcwNDM1Mn0.haEACxqAosN3dQ2Qz_Y2mzpYDI1RRB4TKjghmpRt_mc';
+  const { createClient } = supabase;
+  const sb = createClient(SUPABASE_URL, SUPABASE_ANON);
+
+  let entries = [];
+  let unlockedAchievements = [];
+  let currentUser = null;
+  let currentFilter = 'all';
+
+  // ── Car data ───────────────────────────────────────────────
+  const CAR_DATA = {
+    'Audi':['A1','A3','A4','A5','A6','A7','A8','Q2','Q3','Q5','Q7','Q8','TT','R8','e-tron','Q4 e-tron'],
+    'BMW':['1er','2er','3er','4er','5er','6er','7er','8er','X1','X2','X3','X4','X5','X6','X7','M3','M5','Z4','i3','i4','iX'],
+    'Citroën':['C1','C3','C4','C5','Berlingo','C3 Aircross','C5 Aircross','SpaceTourer'],
+    'Dacia':['Sandero','Logan','Duster','Spring','Jogger','Bigster'],
+    'Fiat':['500','Panda','Punto','Tipo','Doblo','Ducato','500X','500L'],
+    'Ford':['Fiesta','Focus','Mondeo','Kuga','Puma','Mustang Mach-E','Explorer','Ranger','Transit','Tourneo'],
+    'Honda':['Jazz','Civic','Accord','CR-V','HR-V','e','ZR-V'],
+    'Hyundai':['i10','i20','i30','i40','Tucson','Santa Fe','Kona','Ioniq 5','Ioniq 6'],
+    'Kia':['Picanto','Rio','Ceed','Sportage','Sorento','Stonic','Niro','EV6','EV9'],
+    'Mazda':['Mazda2','Mazda3','Mazda6','CX-3','CX-5','CX-60','MX-5','MX-30'],
+    'Mercedes':['A-Klasse','B-Klasse','C-Klasse','E-Klasse','S-Klasse','CLA','CLS','GLA','GLB','GLC','GLE','GLS','EQA','EQC','EQS','Sprinter','Vito'],
+    'Mitsubishi':['Space Star','Eclipse Cross','Outlander','L200','ASX'],
+    'Nissan':['Micra','Juke','Qashqai','X-Trail','Leaf','Ariya','Navara'],
+    'Opel':['Corsa','Astra','Insignia','Mokka','Crossland','Grandland','Zafira','Combo'],
+    'Peugeot':['108','208','308','508','2008','3008','5008','e-208','Rifter','Partner','Boxer'],
+    'Porsche':['911','Cayenne','Macan','Panamera','Taycan','Boxster','Cayman'],
+    'Renault':['Clio','Megane','Captur','Kadjar','Arkana','Zoe','Austral','Espace','Trafic','Master'],
+    'Seat':['Ibiza','Leon','Arona','Ateca','Tarraco','Alhambra'],
+    'Skoda':['Fabia','Octavia','Superb','Kamiq','Karoq','Kodiaq','Enyaq','Scala'],
+    'Suzuki':['Alto','Swift','Vitara','SX4','Jimny','Across'],
+    'Tesla':['Model 3','Model S','Model X','Model Y','Cybertruck'],
+    'Toyota':['Yaris','Corolla','Camry','RAV4','C-HR','Prius','Aygo X','Hilux','Land Cruiser','bZ4X'],
+    'Volvo':['V40','V60','V90','S60','S90','XC40','XC60','XC90','C40','EX30'],
+    'VW':['Golf','Polo','Passat','Tiguan','T-Roc','T-Cross','Touareg','Touran','Sharan','Caddy','ID.3','ID.4','ID.7','Arteon','Up'],
+  };
+
+  // ── Achievements ───────────────────────────────────────────
+  const ACHIEVEMENTS = [
+    { id:'first',   icon:'🎯', name:'Erster Fund',      desc:'1 Kennzeichen gesammelt',   check:e=>e.length>=1 },
+    { id:'five',    icon:'🔥', name:'Auf der Jagd',     desc:'5 Kennzeichen gesammelt',   check:e=>e.length>=5 },
+    { id:'ten',     icon:'🏅', name:'Zehn drauf',       desc:'10 Kennzeichen gesammelt',  check:e=>e.length>=10 },
+    { id:'twenty5', icon:'⭐', name:'Viertel-Hundert',  desc:'25 Kennzeichen gesammelt',  check:e=>e.length>=25 },
+    { id:'fifty',   icon:'🏆', name:'Halbe Hundert',    desc:'50 Kennzeichen gesammelt',  check:e=>e.length>=50 },
+    { id:'hundred', icon:'💯', name:'Die 100!',         desc:'100 Kennzeichen gesammelt', check:e=>e.length>=100 },
+    { id:'brand1',  icon:'🚗', name:'Erste Marke',      desc:'Eine Marke erfasst',        check:e=>new Set(e.map(x=>x.brand).filter(b=>b&&b!=='–')).size>=1 },
+    { id:'brand5',  icon:'🚘', name:'Markenkenner',     desc:'5 verschiedene Marken',     check:e=>new Set(e.map(x=>x.brand).filter(b=>b&&b!=='–')).size>=5 },
+    { id:'brand10', icon:'🏎️', name:'Marken-Experte',  desc:'10 verschiedene Marken',    check:e=>new Set(e.map(x=>x.brand).filter(b=>b&&b!=='–')).size>=10 },
+    { id:'low',     icon:'1️⃣', name:'Niedrige Zahl',   desc:'Nummer unter 10 gefunden',  check:e=>e.some(x=>x.num<10) },
+    { id:'high',    icon:'🔢', name:'Große Zahl',       desc:'Nummer über 500 gefunden',  check:e=>e.some(x=>x.num>500) },
+    { id:'today3',  icon:'⚡', name:'Aktiv dabei',      desc:'3 Funde an einem Tag',      check:e=>{ const d={}; e.forEach(x=>{const k=x.created_at?.slice(0,10);if(k)d[k]=(d[k]||0)+1;}); return Object.values(d).some(v=>v>=3); }},
+  ];
+
+  // ── Init ───────────────────────────────────────────────────
+  async function init() {
+    const { data: { session } } = await sb.auth.getSession();
+    if (!session) { window.location.href = '../../index.html'; return; }
+    currentUser = session.user;
+    document.getElementById('navUser').textContent = currentUser.email;
+
+    // Populate brand dropdown
+    const brandSel = document.getElementById('inputBrand');
+    Object.keys(CAR_DATA).forEach(b => {
+      const o = document.createElement('option');
+      o.value = b; o.textContent = b;
+      brandSel.appendChild(o);
+    });
+
+    await loadEntries();
+    document.getElementById('loadingScreen').classList.add('hidden');
+
+    // Live preview
+    document.getElementById('inputNum').addEventListener('input', function() {
+      document.getElementById('prevNum').textContent = this.value.trim() || '???';
+    });
+    document.getElementById('inputNum').addEventListener('keydown', e => { if(e.key==='Enter') document.getElementById('inputBrand').focus(); });
+    document.getElementById('inputBrand').addEventListener('keydown', e => { if(e.key==='Enter') document.getElementById('inputModel').focus(); });
+    document.getElementById('inputModel').addEventListener('keydown', e => { if(e.key==='Enter') addEntry(); });
+  }
+
+  async function loadEntries() {
+    const { data, error } = await sb
+      .from('kennzeichen')
+      .select('*')
+      .eq('user_id', currentUser.id)
+      .order('created_at', { ascending: false });
+
+    if (error) { console.error(error); return; }
+    entries = data || [];
+    unlockedAchievements = ACHIEVEMENTS.filter(a => a.check(entries)).map(a => a.id);
+    renderAll();
+  }
+
+  // ── Models dropdown ────────────────────────────────────────
+  function updateModels() {
+    const brand = document.getElementById('inputBrand').value;
+    const modelSel = document.getElementById('inputModel');
+    modelSel.innerHTML = '';
+    if (!brand) {
+      modelSel.innerHTML = '<option value="">– erst Marke wählen –</option>';
+      modelSel.disabled = true; return;
+    }
+    modelSel.disabled = false;
+    const ph = document.createElement('option'); ph.value=''; ph.textContent='– Modell wählen –';
+    modelSel.appendChild(ph);
+    (CAR_DATA[brand]||[]).forEach(m => {
+      const o = document.createElement('option'); o.value=m; o.textContent=m;
+      modelSel.appendChild(o);
+    });
+  }
+
+  // ── Add entry ──────────────────────────────────────────────
+  async function addEntry() {
+    const num   = document.getElementById('inputNum').value.trim();
+    const brand = document.getElementById('inputBrand').value.trim();
+    const model = document.getElementById('inputModel').value.trim();
+    const errEl = document.getElementById('errorMsg');
+    const btn   = document.getElementById('btnAdd');
+
+    if (!num || isNaN(num) || parseInt(num) < 1) {
+      errEl.textContent = 'Bitte eine gültige Nummer eingeben!';
+      errEl.classList.add('show'); return;
+    }
+    const numInt = parseInt(num);
+    if (entries.some(e => e.num === numInt)) {
+      errEl.textContent = 'MEL · LE · ' + numInt + ' wurde bereits erfasst!';
+      errEl.classList.add('show'); return;
+    }
+    errEl.classList.remove('show');
+
+    btn.disabled = true; btn.textContent = 'Speichern…';
+
+    const { data, error } = await sb.from('kennzeichen').insert({
+      user_id: currentUser.id,
+      num: numInt,
+      brand: brand || '–',
+      model: model || '–'
+    }).select().single();
+
+    btn.disabled = false; btn.textContent = '+ Kennzeichen Erfassen';
+
+    if (error) {
+      if (error.code === '23505') {
+        errEl.textContent = 'MEL · LE · ' + numInt + ' wurde bereits erfasst!';
+      } else {
+        errEl.textContent = 'Fehler beim Speichern: ' + error.message;
+      }
+      errEl.classList.add('show'); return;
+    }
+
+    entries.unshift(data);
+    checkAchievements();
+    renderAll();
+
+    document.getElementById('inputNum').value = '';
+    document.getElementById('inputBrand').value = '';
+    document.getElementById('inputModel').innerHTML = '<option value="">– erst Marke wählen –</option>';
+    document.getElementById('inputModel').disabled = true;
+    document.getElementById('prevNum').textContent = '???';
+    showToast('MEL · LE · ' + numInt + ' erfasst! 🎯');
+  }
+
+  // ── Delete entry ───────────────────────────────────────────
+  async function deleteEntry(id) {
+    const { error } = await sb.from('kennzeichen').delete().eq('id', id).eq('user_id', currentUser.id);
+    if (error) { showToast('Fehler beim Löschen'); return; }
+    entries = entries.filter(e => e.id !== id);
+    renderAll();
+  }
+
+  // ── Achievements ───────────────────────────────────────────
+  function checkAchievements() {
+    let newUnlocks = [];
+    ACHIEVEMENTS.forEach(a => {
+      if (!unlockedAchievements.includes(a.id) && a.check(entries)) {
+        unlockedAchievements.push(a.id);
+        newUnlocks.push(a);
+      }
+    });
+    if (newUnlocks.length) {
+      setTimeout(() => {
+        newUnlocks.forEach((a,i) => setTimeout(() => showToast('🏅 Achievement: '+a.name+'!'), i*1400));
+      }, 700);
+    }
+  }
+
+  // ── Filter ─────────────────────────────────────────────────
+  function setFilter(f, btn) {
+    currentFilter = f;
+    document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    renderList();
+  }
+
+  function getFiltered() {
+    const q = document.getElementById('searchInput').value.toLowerCase();
+    const now = new Date();
+    return entries.filter(e => {
+      if (currentFilter==='today' && new Date(e.created_at).toDateString()!==now.toDateString()) return false;
+      if (currentFilter==='recent' && (now-new Date(e.created_at))/86400000>7) return false;
+      if (q && !(e.num+' '+e.brand+' '+e.model).toLowerCase().includes(q)) return false;
+      return true;
+    });
+  }
+
+  // ── Render ─────────────────────────────────────────────────
+  function renderStats() {
+    const todayStr = new Date().toDateString();
+    document.getElementById('statTotal').textContent   = entries.length;
+    document.getElementById('statToday').textContent   = entries.filter(e=>new Date(e.created_at).toDateString()===todayStr).length;
+    document.getElementById('statHighest').textContent = entries.length ? Math.max(...entries.map(e=>e.num)) : '–';
+    document.getElementById('statBrands').textContent  = new Set(entries.map(e=>e.brand).filter(b=>b&&b!=='–')).size;
+  }
+
+  function renderAchievements() {
+    document.getElementById('achievementsGrid').innerHTML = ACHIEVEMENTS.map(a => {
+      const u = unlockedAchievements.includes(a.id);
+      return `<div class="badge ${u?'unlocked':''}" id="badge-${a.id}">
+        <div class="badge-icon">${a.icon}</div>
+        <div class="badge-info"><div class="badge-name">${a.name}</div><div class="badge-desc">${a.desc}</div></div>
+        <div class="badge-check">✓</div>
+      </div>`;
+    }).join('');
+  }
+
+  function renderBrandRanking() {
+    const el = document.getElementById('brandRanking');
+    const counts = {};
+    entries.forEach(e => { if(e.brand&&e.brand!=='–') counts[e.brand]=(counts[e.brand]||0)+1; });
+    const sorted = Object.entries(counts).sort((a,b)=>b[1]-a[1]).slice(0,8);
+    if (!sorted.length) { el.innerHTML='<div class="brand-empty">Noch keine Marken erfasst.</div>'; return; }
+    const max = sorted[0][1];
+    el.innerHTML = sorted.map(([brand,count],i)=>`
+      <div class="brand-row">
+        <div class="brand-rank">${i+1}</div>
+        <div class="brand-name">${brand}</div>
+        <div class="brand-bar-wrap"><div class="brand-bar-fill" style="width:${(count/max*100).toFixed(1)}%"></div></div>
+        <div class="brand-count">${count}</div>
+      </div>`).join('');
+  }
+
+  function formatDate(iso) {
+    const d = new Date(iso);
+    if (d.toDateString()===new Date().toDateString())
+      return 'Heute '+d.toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'});
+    return d.toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit',year:'2-digit'});
+  }
+
+  function renderList() {
+    const grid = document.getElementById('entriesGrid');
+    const filtered = getFiltered();
+    document.getElementById('listCount').textContent = filtered.length+' Einträge';
+    if (!filtered.length) {
+      grid.innerHTML=`<div class="empty-state"><div class="empty-icon">🚗</div><p>Noch nichts hier.<br>Los geht's – MEL-Jagd!</p></div>`;
+      return;
+    }
+    grid.innerHTML = filtered.map(e=>`
+      <div class="entry-card">
+        <div class="entry-plate"><div class="plate">
+          <div class="plate-eu-strip">
+            <div class="plate-eu-stars" style="font-size:6px">★★★<br>★ ★<br>★★★</div>
+            <div class="plate-eu-d">D</div>
+          </div>
+          <div class="plate-text"><span class="region">MEL · LE</span> · ${e.num}</div>
+        </div></div>
+        <div class="entry-info">
+          <div class="entry-model">${[e.brand,e.model].filter(x=>x&&x!=='–').join(' ')||'–'}</div>
+          <div class="entry-meta">
+            ${e.brand&&e.brand!=='–'?'<span>🏷 '+e.brand+'</span>':''}
+            ${e.model&&e.model!=='–'?'<span>🚘 '+e.model+'</span>':''}
+          </div>
+        </div>
+        <div class="entry-date">${formatDate(e.created_at)}</div>
+        <button class="btn-delete" onclick="deleteEntry(${e.id})" title="Löschen">✕</button>
+      </div>`).join('');
+  }
+
+  function renderAll() { renderStats(); renderAchievements(); renderBrandRanking(); renderList(); }
+
+  function showToast(msg) {
+    const t = document.getElementById('toast');
+    t.textContent = msg; t.classList.add('show');
+    setTimeout(()=>t.classList.remove('show'), 2500);
+  }
+
+  init();
+</script>
+</body>
+</html>
