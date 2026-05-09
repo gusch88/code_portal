@@ -145,6 +145,36 @@
   .empty-state { text-align: center; padding: 44px 20px; color: var(--muted); }
   .empty-icon { font-size: 2.8rem; margin-bottom: 10px; opacity: 0.35; }
 
+  /* MODAL */
+  .modal-overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.6); display: none; align-items: center; justify-content: center;
+    z-index: 300; backdrop-filter: blur(4px);
+  }
+  .modal-overlay.show { display: flex; }
+  .modal-content {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
+    padding: 28px; max-width: 420px; width: 90%; box-shadow: 0 24px 64px rgba(0,0,0,0.6);
+  }
+  .modal-title { font-family: 'Bebas Neue', sans-serif; font-size: 1.3rem; letter-spacing: 2px; margin-bottom: 20px; }
+  .modal-field { display: flex; flex-direction: column; gap: 5px; margin-bottom: 14px; }
+  .modal-field label { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 1.5px; color: var(--muted); }
+  .modal-field input, .modal-field select {
+    background: var(--surface2); border: 1px solid var(--border); border-radius: 8px;
+    color: var(--text); padding: 10px 13px; font-family: 'DM Mono', monospace; font-size: 0.9rem;
+    outline: none; transition: border-color 0.2s;
+  }
+  .modal-field input:focus, .modal-field select:focus { border-color: var(--accent); }
+  .modal-buttons { display: flex; gap: 10px; margin-top: 24px; }
+  .btn-modal { flex: 1; border: none; border-radius: 8px; padding: 11px; font-family: 'Bebas Neue', sans-serif;
+    font-size: 0.95rem; letter-spacing: 2px; cursor: pointer; transition: all 0.15s;
+  }
+  .btn-save { background: var(--accent); color: #000; }
+  .btn-save:hover { background: var(--accent2); }
+  .btn-cancel { background: var(--surface2); color: var(--muted); border: 1px solid var(--border); }
+  .btn-cancel:hover { border-color: var(--accent); color: var(--accent); }
+  .modal-error { color: var(--red); font-size: 0.8rem; margin-top: 12px; display: none; }
+  .modal-error.show { display: block; }
+
   /* TOAST */
   .toast { position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%) translateY(70px); background: var(--accent); color: #000; padding: 11px 24px; border-radius: 999px; font-family: 'Bebas Neue', sans-serif; font-size: 0.95rem; letter-spacing: 2px; z-index: 999; transition: transform 0.3s cubic-bezier(.4,0,.2,1); white-space: nowrap; }
   .toast.show { transform: translateX(-50%) translateY(0); }
@@ -230,6 +260,34 @@
   <div class="entries-grid" id="entriesGrid"></div>
 </div>
 
+<!-- EDIT MODAL -->
+<div class="modal-overlay" id="editModal">
+  <div class="modal-content">
+    <div class="modal-title">MEL-Kennzeichen bearbeiten</div>
+    <div class="modal-field">
+      <label>Nummer</label>
+      <input type="number" id="modalNum" min="1" max="9999" placeholder="z.B. 142">
+    </div>
+    <div class="modal-field">
+      <label>Marke</label>
+      <select id="modalBrand" onchange="updateModalModels()">
+        <option value="">– Marke wählen –</option>
+      </select>
+    </div>
+    <div class="modal-field">
+      <label>Modell / Fabrikat</label>
+      <select id="modalModel">
+        <option value="">– Modell wählen –</option>
+      </select>
+    </div>
+    <div class="modal-error" id="modalError"></div>
+    <div class="modal-buttons">
+      <button class="btn-modal btn-save" id="btnModalSave" onclick="saveEdit()">Speichern</button>
+      <button class="btn-modal btn-cancel" onclick="closeEditModal()">Abbrechen</button>
+    </div>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <script>
@@ -243,6 +301,7 @@
   let unlockedAchievements = [];
   let currentUser = null;
   let currentFilter = 'all';
+  let editingEntryId = null;
 
   // ── Car data ───────────────────────────────────────────────
   const CAR_DATA = {
@@ -295,12 +354,13 @@
     currentUser = session.user;
     document.getElementById('navUser').textContent = currentUser.email;
 
-    // Populate brand dropdown
-    const brandSel = document.getElementById('inputBrand');
-    Object.keys(CAR_DATA).forEach(b => {
-      const o = document.createElement('option');
-      o.value = b; o.textContent = b;
-      brandSel.appendChild(o);
+    // Populate brand dropdowns (both input and modal)
+    [document.getElementById('inputBrand'), document.getElementById('modalBrand')].forEach(brandSel => {
+      Object.keys(CAR_DATA).forEach(b => {
+        const o = document.createElement('option');
+        o.value = b; o.textContent = b;
+        brandSel.appendChild(o);
+      });
     });
 
     await loadEntries();
@@ -317,7 +377,7 @@
 
   async function loadEntries() {
     const { data, error } = await sb
-      .from('kennzeichen')
+      .from('mel_kennzeichen')
       .select('*')
       .eq('user_id', currentUser.id)
       .order('created_at', { ascending: false });
@@ -338,6 +398,22 @@
       modelSel.disabled = true; return;
     }
     modelSel.disabled = false;
+    const ph = document.createElement('option'); ph.value=''; ph.textContent='– Modell wählen –';
+    modelSel.appendChild(ph);
+    (CAR_DATA[brand]||[]).forEach(m => {
+      const o = document.createElement('option'); o.value=m; o.textContent=m;
+      modelSel.appendChild(o);
+    });
+  }
+
+  function updateModalModels() {
+    const brand = document.getElementById('modalBrand').value;
+    const modelSel = document.getElementById('modalModel');
+    modelSel.innerHTML = '';
+    if (!brand) {
+      modelSel.innerHTML = '<option value="">– Modell wählen –</option>';
+      return;
+    }
     const ph = document.createElement('option'); ph.value=''; ph.textContent='– Modell wählen –';
     modelSel.appendChild(ph);
     (CAR_DATA[brand]||[]).forEach(m => {
@@ -367,7 +443,7 @@
 
     btn.disabled = true; btn.textContent = 'Speichern…';
 
-    const { data, error } = await sb.from('kennzeichen').insert({
+    const { data, error } = await sb.from('mel_kennzeichen').insert({
       user_id: currentUser.id,
       num: numInt,
       brand: brand || '–',
@@ -399,10 +475,76 @@
 
   // ── Delete entry ───────────────────────────────────────────
   async function deleteEntry(id) {
-    const { error } = await sb.from('kennzeichen').delete().eq('id', id).eq('user_id', currentUser.id);
+    const { error } = await sb.from('mel_kennzeichen').delete().eq('id', id).eq('user_id', currentUser.id);
     if (error) { showToast('Fehler beim Löschen'); return; }
     entries = entries.filter(e => e.id !== id);
     renderAll();
+  }
+
+  // ── Edit entry modal ───────────────────────────────────────
+  function openEditModal(id) {
+    const entry = entries.find(e => e.id === id);
+    if (!entry) return;
+    editingEntryId = id;
+    document.getElementById('modalNum').value = entry.num;
+    document.getElementById('modalBrand').value = entry.brand === '–' ? '' : entry.brand;
+    document.getElementById('modalError').classList.remove('show');
+    updateModalModels();
+    if (entry.brand && entry.brand !== '–') {
+      document.getElementById('modalModel').value = entry.model === '–' ? '' : entry.model;
+    }
+    document.getElementById('editModal').classList.add('show');
+    setTimeout(() => document.getElementById('modalNum').focus(), 100);
+  }
+
+  function closeEditModal() {
+    editingEntryId = null;
+    document.getElementById('editModal').classList.remove('show');
+    document.getElementById('modalError').classList.remove('show');
+  }
+
+  async function saveEdit() {
+    const num = document.getElementById('modalNum').value.trim();
+    const brand = document.getElementById('modalBrand').value.trim();
+    const model = document.getElementById('modalModel').value.trim();
+    const errEl = document.getElementById('modalError');
+    const btn = document.getElementById('btnModalSave');
+
+    if (!num || isNaN(num) || parseInt(num) < 1) {
+      errEl.textContent = 'Bitte eine gültige Nummer eingeben!';
+      errEl.classList.add('show'); return;
+    }
+    const numInt = parseInt(num);
+    if (entries.some(e => e.id !== editingEntryId && e.num === numInt)) {
+      errEl.textContent = 'MEL · LE · ' + numInt + ' existiert bereits!';
+      errEl.classList.add('show'); return;
+    }
+    errEl.classList.remove('show');
+
+    btn.disabled = true; btn.textContent = 'Speichern…';
+
+    const { error } = await sb
+      .from('mel_kennzeichen')
+      .update({
+        num: numInt,
+        brand: brand || '–',
+        model: model || '–',
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', editingEntryId);
+
+    btn.disabled = false; btn.textContent = 'Speichern';
+
+    if (error) {
+      errEl.textContent = 'Fehler beim Speichern: ' + error.message;
+      errEl.classList.add('show'); 
+      console.error('Update error:', error);
+      return;
+    }
+
+    await loadEntries();
+    closeEditModal();
+    showToast('MEL · LE · ' + numInt + ' aktualisiert! ✓');
   }
 
   // ── Achievements ───────────────────────────────────────────
@@ -507,7 +649,8 @@
             ${e.model&&e.model!=='–'?'<span>🚘 '+e.model+'</span>':''}
           </div>
         </div>
-        <div class="entry-date">${formatDate(e.created_at)}</div>
+        <div class="entry-date">${formatDate(e.updated_at || e.created_at)}</div>
+        <button class="btn-delete" onclick="openEditModal(${e.id})" title="Bearbeiten">✏️</button>
         <button class="btn-delete" onclick="deleteEntry(${e.id})" title="Löschen">✕</button>
       </div>`).join('');
   }
@@ -519,6 +662,11 @@
     t.textContent = msg; t.classList.add('show');
     setTimeout(()=>t.classList.remove('show'), 2500);
   }
+
+  // Close modal on Escape key
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && document.getElementById('editModal').classList.contains('show')) closeEditModal();
+  });
 
   init();
 </script>

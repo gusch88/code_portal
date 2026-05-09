@@ -58,6 +58,19 @@
     outline: none; transition: border-color 0.2s;
   }
   .auth-field input:focus { border-color: var(--accent); }
+  .password-wrapper {
+    position: relative; display: flex; align-items: center;
+  }
+  .password-wrapper input {
+    flex: 1; padding-right: 42px;
+  }
+  .toggle-password {
+    position: absolute; right: 12px; background: none; border: none;
+    cursor: pointer; color: var(--muted); font-size: 1rem;
+    display: flex; align-items: center; justify-content: center;
+    width: 28px; height: 28px; transition: color 0.2s;
+  }
+  .toggle-password:hover { color: var(--accent); }
   .auth-btn {
     width: 100%; background: var(--accent); color: #000; border: none; border-radius: 8px;
     padding: 13px; font-family: 'Bebas Neue', sans-serif; font-size: 1.1rem; letter-spacing: 2px;
@@ -67,6 +80,44 @@
   .auth-btn:active { transform: scale(0.98); }
   .auth-error { color: var(--red); font-size: 0.8rem; margin-top: 8px; min-height: 18px; }
   .auth-loading { opacity: 0.5; pointer-events: none; }
+
+  .forgot-password-link {
+    text-align: center; margin-top: 16px;
+  }
+  .forgot-password-link button {
+    background: none; border: none; color: var(--accent);
+    font-size: 0.85rem; cursor: pointer; padding: 4px 0;
+    text-decoration: underline; transition: all 0.2s;
+    font-family: 'DM Sans', sans-serif; font-weight: 500;
+  }
+  .forgot-password-link button:hover {
+    color: var(--accent2); opacity: 0.9; text-decoration-thickness: 2px;
+  }
+  .forgot-password-link button:active {
+    transform: scale(0.98);
+  }
+
+  /* ── RESET PASSWORD MODAL ── */
+  .reset-modal {
+    position: fixed; inset: 0; z-index: 101;
+    display: flex; align-items: center; justify-content: center;
+    background: rgba(0,0,0,0.7); backdrop-filter: blur(4px);
+  }
+  .reset-modal.hidden { display: none; }
+  .reset-modal-box {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 18px;
+    padding: 40px 36px; width: 100%; max-width: 380px;
+    box-shadow: 0 24px 64px rgba(0,0,0,0.6);
+    animation: modalSlideIn 0.2s ease-out;
+  }
+  @keyframes modalSlideIn {
+    from { opacity: 0; transform: translateY(-20px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .reset-modal-title { font-size: 1.3rem; font-weight: 600; margin-bottom: 8px; }
+  .reset-modal-desc { font-size: 0.85rem; color: var(--muted); margin-bottom: 24px; }
+  .reset-modal-actions { display: flex; gap: 12px; margin-top: 24px; }
+  .reset-modal-actions button { flex: 1; }
 
   /* ── NAV ── */
   nav {
@@ -176,10 +227,33 @@
     </div>
     <div class="auth-field">
       <label>Passwort</label>
-      <input type="password" id="authPassword" placeholder="••••••••" onkeydown="if(event.key==='Enter')doAuth()">
+      <div class="password-wrapper">
+        <input type="password" id="authPassword" placeholder="••••••••" onkeydown="if(event.key==='Enter')doAuth()">
+        <button type="button" class="toggle-password" onclick="toggleShowPassword()" title="Passwort anzeigen/verbergen">👁️</button>
+      </div>
     </div>
     <div class="auth-error" id="authError"></div>
     <button class="auth-btn" id="authBtn" onclick="doAuth()">Anmelden</button>
+    <div class="forgot-password-link">
+      <button onclick="openResetModal()" type="button">Passwort vergessen?</button>
+    </div>
+  </div>
+</div>
+
+<!-- RESET PASSWORD MODAL -->
+<div class="reset-modal hidden" id="resetModal">
+  <div class="reset-modal-box">
+    <div class="reset-modal-title">Passwort zurücksetzen</div>
+    <div class="reset-modal-desc">Gib deine E-Mail-Adresse ein. Du erhältst einen Link zum Zurücksetzen.</div>
+    <div class="auth-field">
+      <label>E-Mail</label>
+      <input type="email" id="resetEmail" placeholder="deine@email.de">
+    </div>
+    <div class="auth-error" id="resetError"></div>
+    <div class="reset-modal-actions">
+      <button class="auth-btn" onclick="requestPasswordReset()" style="background: var(--accent); color: #000;">Link senden</button>
+      <button class="auth-btn" onclick="closeResetModal()" style="background: var(--surface2);">Abbrechen</button>
+    </div>
   </div>
 </div>
 
@@ -212,15 +286,15 @@
       </div>
     </a>
 
-    <!-- Platzhalter für zukünftige Apps -->
-    <div class="app-card app-card-soon">
+    <!-- KFZ Kennzeichen Sammler -->
+    <a class="app-card" href="apps/kfz-kennzeichen-de-sammler/index.html">
       <div class="app-card-thumb" style="background: linear-gradient(135deg, #0f1520 0%, #151e2e 100%);">⏱️</div>
       <div class="app-card-body">
-        <div class="app-card-name">ZeitTrack</div>
-        <div class="app-card-desc">Zeiterfassung mit GPS-Geofencing und automatischer Erkennung.</div>
-        <div class="app-card-tag">Bald verfügbar</div>
+        <div class="app-card-name">KFZ Kennzeichen Sammler</div>
+        <div class="app-card-desc">Sammel alle deutschen KFZ Kennzeichen.</div>
+        <div class="app-card-tag">Kennzeichen</div>
       </div>
-    </div>
+    </a>
 
     <div class="app-card app-card-soon">
       <div class="app-card-thumb" style="background: linear-gradient(135deg, #0d1a0d 0%, #122012 100%);">➕</div>
@@ -311,6 +385,80 @@
     t.classList.add('show');
     setTimeout(() => t.classList.remove('show'), 2500);
   }
+
+  function toggleShowPassword() {
+    const input = document.getElementById('authPassword');
+    const btn = document.querySelector('.toggle-password');
+    if (input.type === 'password') {
+      input.type = 'text';
+      btn.textContent = '👁️‍🗨️';
+    } else {
+      input.type = 'password';
+      btn.textContent = '👁️';
+    }
+  }
+
+  function openResetModal() {
+    document.getElementById('resetModal').classList.remove('hidden');
+    document.getElementById('resetEmail').value = '';
+    document.getElementById('resetError').textContent = '';
+  }
+
+  function closeResetModal() {
+    document.getElementById('resetModal').classList.add('hidden');
+  }
+
+  async function requestPasswordReset() {
+    const email = document.getElementById('resetEmail').value.trim();
+    const errEl = document.getElementById('resetError');
+    errEl.textContent = '';
+
+    if (!email) {
+      errEl.textContent = 'Bitte gib deine E-Mail-Adresse ein.';
+      return;
+    }
+
+    try {
+      const result = await sb.auth.resetPasswordForEmail(email, {
+        redirectTo: window.location.origin + window.location.pathname + '?reset-confirm=true'
+      });
+
+      if (result.error) {
+        errEl.textContent = result.error.message;
+      } else {
+        errEl.style.color = '#4ade80';
+        errEl.textContent = '✓ E-Mail versendet! Prüfe dein Postfach.';
+        setTimeout(() => closeResetModal(), 3000);
+      }
+    } catch (err) {
+      errEl.textContent = 'Fehler beim Versand: ' + err.message;
+    }
+  }
+
+  // Handle Password Reset Confirmation
+  async function handlePasswordResetConfirm() {
+    const newPassword = prompt('Gib dein neues Passwort ein:');
+    if (!newPassword) return;
+
+    try {
+      const result = await sb.auth.updateUser({ password: newPassword });
+      if (result.error) {
+        alert('Fehler: ' + result.error.message);
+      } else {
+        alert('✓ Passwort erfolgreich geändert!');
+        window.location.href = window.location.pathname;
+      }
+    } catch (err) {
+      alert('Fehler: ' + err.message);
+    }
+  }
+
+  // Check for reset confirmation on page load
+  window.addEventListener('load', () => {
+    if (new URLSearchParams(window.location.search).has('reset-confirm')) {
+      setTimeout(() => handlePasswordResetConfirm(), 500);
+    }
+  });
 </script>
 </body>
 </html>

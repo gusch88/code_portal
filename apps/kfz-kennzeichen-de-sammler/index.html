@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>KFZ-Kennzeichen Sammler</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:wght@400;500&family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0d0d0f; --surface: #16181c; --surface2: #1e2028;
+    --border: #2a2d38; --accent: #f5c518; --accent2: #e8a800;
+    --text: #f0f0f2; --muted: #7a7f8e; --red: #ef4444;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: 'DM Sans', sans-serif; min-height: 100vh; overflow-x: hidden; }
+  body::before {
+    content: ''; position: fixed; inset: 0;
+    background-image: linear-gradient(rgba(245,197,24,0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(245,197,24,0.03) 1px, transparent 1px);
+    background-size: 40px 40px; pointer-events: none; z-index: 0;
+  }
+
+  nav {
+    position: sticky; top: 0; z-index: 50;
+    background: rgba(13,13,15,0.92); backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; gap: 16px; padding: 0 24px; height: 56px;
+  }
+  .nav-back {
+    background: var(--surface2); border: 1px solid var(--border); color: var(--muted);
+    border-radius: 7px; padding: 6px 12px; font-size: 0.8rem; cursor: pointer;
+    text-decoration: none; transition: all 0.15s; display: flex; align-items: center; gap: 6px;
+  }
+  .nav-back:hover { border-color: var(--accent); color: var(--accent); }
+  .nav-title { font-family: 'Bebas Neue', sans-serif; font-size: 1.4rem; letter-spacing: 3px; }
+  .nav-title span { color: var(--accent); }
+  .nav-user { margin-left: auto; font-size: 0.75rem; color: var(--muted); font-family: 'DM Mono', monospace; }
+
+  .loading-screen {
+    position: fixed; inset: 0; background: var(--bg);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 200; font-family: 'Bebas Neue', sans-serif;
+    font-size: 1.2rem; letter-spacing: 3px; color: var(--muted);
+  }
+  .loading-screen.hidden { display: none; }
+
+  .container { max-width: 860px; margin: 0 auto; padding: 28px 20px 60px; position: relative; z-index: 1; }
+  .stats-bar { display: flex; gap: 14px; flex-wrap: wrap; margin-bottom: 24px; }
+  .stat-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 14px 18px; flex: 1; min-width: 110px; }
+  .stat-value { font-family: 'Bebas Neue', sans-serif; font-size: 2rem; color: var(--accent); line-height: 1; }
+  .stat-label { font-size: 0.72rem; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; margin-top: 2px; }
+
+  .input-section { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 22px; margin-bottom: 24px; }
+  .section-title { font-family: 'Bebas Neue', sans-serif; font-size: 1.15rem; letter-spacing: 2px; color: var(--muted); margin-bottom: 16px; }
+
+  .form-row { display: grid; grid-template-columns: 1fr; gap: 13px; margin-bottom: 14px; }
+  .field { display: flex; flex-direction: column; gap: 5px; }
+  label { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 1.5px; color: var(--muted); }
+  input { background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; color: var(--text); padding: 10px 13px; font-family: 'DM Mono', monospace; font-size: 0.9rem; outline: none; transition: border-color 0.2s; width: 100%; }
+  input:focus { border-color: var(--accent); }
+  input::placeholder { color: var(--muted); }
+  .btn-add { background: var(--accent); color: #000; border: none; border-radius: 8px; padding: 12px; font-family: 'Bebas Neue', sans-serif; font-size: 1.05rem; letter-spacing: 2px; cursor: pointer; transition: background 0.15s, transform 0.1s; width: 100%; }
+  .btn-add:hover { background: var(--accent2); }
+  .btn-add:active { transform: scale(0.98); }
+  .btn-add:disabled { opacity: 0.5; cursor: not-allowed; }
+  .error-msg { color: var(--red); font-size: 0.8rem; margin-top: -6px; display: none; }
+  .error-msg.show { display: block; }
+
+  .game-row { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; margin-bottom: 24px; }
+  .section-block { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 20px 22px; }
+
+  .achievements-grid { display: flex; flex-direction: column; gap: 7px; margin-top: 4px; }
+  .badge { display: flex; align-items: center; gap: 10px; background: var(--surface2); border: 1px solid var(--border); border-radius: 9px; padding: 9px 11px; position: relative; }
+  .badge.unlocked { border-color: rgba(245,197,24,0.4); background: rgba(245,197,24,0.05); }
+  .badge.unlocked::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px; background: linear-gradient(90deg, var(--accent), var(--accent2)); }
+  .badge-icon { font-size: 1.3rem; flex-shrink: 0; filter: grayscale(1) opacity(0.2); }
+  .badge.unlocked .badge-icon { filter: none; }
+  .badge-info { flex: 1; }
+  .badge-name { font-size: 0.78rem; font-weight: 600; color: var(--muted); }
+  .badge.unlocked .badge-name { color: var(--text); }
+  .badge-desc { font-size: 0.67rem; color: var(--muted); margin-top: 1px; opacity: 0.6; }
+  .badge-check { font-size: 0.72rem; color: var(--accent); display: none; }
+  .badge.unlocked .badge-check { display: block; }
+
+  .code-ranking { display: flex; flex-direction: column; gap: 8px; margin-top: 4px; }
+  .code-row { display: flex; align-items: center; gap: 10px; }
+  .code-rank { font-family: 'Bebas Neue', sans-serif; font-size: 1rem; color: var(--muted); width: 18px; text-align: center; }
+  .code-row:nth-child(1) .code-rank { color: #ffd700; }
+  .code-row:nth-child(2) .code-rank { color: #c0c0c0; }
+  .code-row:nth-child(3) .code-rank { color: #cd7f32; }
+  .code-name { font-family: 'Bebas Neue', sans-serif; font-size: 1.1rem; font-weight: 600; width: 50px; text-align: center; }
+  .code-bar-wrap { flex: 1; background: var(--surface2); border-radius: 999px; height: 6px; overflow: hidden; }
+  .code-bar-fill { height: 100%; background: linear-gradient(90deg, var(--accent), var(--accent2)); border-radius: 999px; }
+  .code-count { font-family: 'DM Mono', monospace; font-size: 0.76rem; color: var(--accent); width: 22px; text-align: right; }
+  .code-empty { color: var(--muted); font-size: 0.83rem; font-style: italic; }
+
+  .toolbar { display: flex; gap: 10px; margin-bottom: 18px; flex-wrap: wrap; }
+  .search-input { flex: 1; min-width: 160px; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; color: var(--text); padding: 8px 13px; font-family: 'DM Mono', monospace; font-size: 0.88rem; outline: none; transition: border-color 0.2s; }
+  .search-input:focus { border-color: var(--accent); }
+  .filter-btn { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; color: var(--muted); padding: 8px 14px; font-family: 'DM Sans', sans-serif; font-size: 0.82rem; cursor: pointer; transition: all 0.15s; white-space: nowrap; }
+  .filter-btn.active { background: var(--accent); color: #000; border-color: var(--accent); }
+
+  .list-header { font-family: 'Bebas Neue', sans-serif; font-size: 1.05rem; letter-spacing: 2px; color: var(--muted); margin-bottom: 10px; display: flex; align-items: center; justify-content: space-between; }
+  .entries-grid { display: flex; flex-direction: column; gap: 9px; }
+  .entry-card { background: var(--surface); border: 1px solid var(--border); border-radius: 11px; padding: 12px 16px; display: flex; align-items: center; gap: 14px; animation: slideIn 0.22s ease; }
+  .entry-card:hover { border-color: rgba(245,197,24,0.3); }
+  @keyframes slideIn { from{opacity:0;transform:translateY(-6px)} to{opacity:1;transform:translateY(0)} }
+  .entry-code { font-family: 'Bebas Neue', sans-serif; font-size: 1.2rem; font-weight: 700; color: var(--accent); text-align: center; width: 50px; }
+  .entry-info { flex: 1; }
+  .entry-number { font-weight: 600; font-size: 0.9rem; }
+  .entry-date { font-size: 0.72rem; color: var(--muted); font-family: 'DM Mono', monospace; white-space: nowrap; }
+  .btn-delete { background: none; border: none; color: var(--muted); cursor: pointer; font-size: 1rem; padding: 4px 6px; transition: color 0.15s, background 0.15s; }
+  .btn-delete:hover { color: var(--red); background: rgba(239,68,68,0.1); }
+  .empty-state { text-align: center; padding: 44px 20px; color: var(--muted); }
+  .empty-icon { font-size: 2.8rem; margin-bottom: 10px; opacity: 0.35; }
+
+  .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.6); display: none; align-items: center; justify-content: center; z-index: 300; backdrop-filter: blur(4px); }
+  .modal-overlay.show { display: flex; }
+  .modal-content { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 28px; max-width: 420px; width: 90%; box-shadow: 0 24px 64px rgba(0,0,0,0.6); }
+  .modal-title { font-family: 'Bebas Neue', sans-serif; font-size: 1.3rem; letter-spacing: 2px; margin-bottom: 20px; }
+  .modal-field { display: flex; flex-direction: column; gap: 5px; margin-bottom: 14px; }
+  .modal-field label { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 1.5px; color: var(--muted); }
+  .modal-field input { background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; color: var(--text); padding: 10px 13px; font-family: 'DM Mono', monospace; font-size: 0.9rem; outline: none; transition: border-color 0.2s; }
+  .modal-field input:focus { border-color: var(--accent); }
+  .modal-buttons { display: flex; gap: 10px; margin-top: 24px; }
+  .btn-modal { flex: 1; border: none; border-radius: 8px; padding: 11px; font-family: 'Bebas Neue', sans-serif; font-size: 0.95rem; letter-spacing: 2px; cursor: pointer; }
+  .btn-save { background: var(--accent); color: #000; }
+  .btn-save:hover { background: var(--accent2); }
+  .btn-cancel { background: var(--surface2); color: var(--muted); border: 1px solid var(--border); }
+  .btn-cancel:hover { border-color: var(--accent); color: var(--accent); }
+  .modal-error { color: var(--red); font-size: 0.8rem; margin-top: 12px; display: none; }
+  .modal-error.show { display: block; }
+
+  .toast { position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%) translateY(70px); background: var(--accent); color: #000; padding: 11px 24px; border-radius: 999px; font-family: 'Bebas Neue', sans-serif; font-size: 0.95rem; letter-spacing: 2px; z-index: 999; transition: transform 0.3s; }
+  .toast.show { transform: translateX(-50%) translateY(0); }
+</style>
+</head>
+<body>
+
+<div class="loading-screen" id="loadingScreen">Lade Kennzeichen…</div>
+
+<nav>
+  <a class="nav-back" href="../../index.html">← Portal</a>
+  <div class="nav-title"><span>KFZ</span>-Kennzeichen</div>
+  <div class="nav-user" id="navUser"></div>
+</nav>
+
+<div class="container">
+  <div class="stats-bar">
+    <div class="stat-card"><div class="stat-value" id="statTotal">0</div><div class="stat-label">Gesammelt</div></div>
+    <div class="stat-card"><div class="stat-value" id="statToday">0</div><div class="stat-label">Heute</div></div>
+    <div class="stat-card"><div class="stat-value" id="statCodes">0</div><div class="stat-label">Codes</div></div>
+    <div class="stat-card"><div class="stat-value" id="statProgress">0%</div><div class="stat-label">Fortschritt</div></div>
+  </div>
+
+  <div class="input-section">
+    <div class="section-title">Neuer Code</div>
+    <div class="form-row">
+      <div class="field">
+        <label>Bundesland-Code (z.B. B, HH, M)</label>
+        <input type="text" id="inputCode" placeholder="z.B. B" maxlength="3" style="text-transform: uppercase;">
+      </div>
+    </div>
+    <div class="error-msg" id="errorMsg"></div>
+    <button class="btn-add" onclick="addEntry()">+ Code Erfassen</button>
+  </div>
+
+  <div class="game-row">
+    <div class="section-block">
+      <div class="section-title">Achievements</div>
+      <div class="achievements-grid" id="achievementsGrid"></div>
+    </div>
+    <div class="section-block">
+      <div class="section-title">Code-Rangliste</div>
+      <div class="code-ranking" id="codeRanking"></div>
+    </div>
+  </div>
+
+  <div class="toolbar">
+    <input type="text" class="search-input" id="searchInput" placeholder="🔍 Suchen…" oninput="renderList()">
+    <button class="filter-btn active" onclick="setFilter('all',this)">Alle</button>
+    <button class="filter-btn" onclick="setFilter('today',this)">Heute</button>
+    <button class="filter-btn" onclick="setFilter('recent',this)">Diese Woche</button>
+  </div>
+
+  <div class="list-header">
+    <span>Gesammelte Codes</span>
+    <span id="listCount" style="font-size:0.82rem;color:var(--muted)"></span>
+  </div>
+  <div class="entries-grid" id="entriesGrid"></div>
+</div>
+
+<div class="modal-overlay" id="editModal">
+  <div class="modal-content">
+    <div class="modal-title">Code bearbeiten</div>
+    <div class="modal-field">
+      <label>Code</label>
+      <input type="text" id="modalCode" placeholder="z.B. B" maxlength="3" style="text-transform: uppercase;">
+    </div>
+    <div class="modal-error" id="modalError"></div>
+    <div class="modal-buttons">
+      <button class="btn-modal btn-save" onclick="saveEdit()">Speichern</button>
+      <button class="btn-modal btn-cancel" onclick="closeEditModal()">Abbrechen</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+  const SUPABASE_URL = 'https://xtbnrrhzhcvcetsdsfao.supabase.co';
+  const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh0Ym5ycmh6aGN2Y2V0c2RzZmFvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUxMjgzNTIsImV4cCI6MjA5MDcwNDM1Mn0.haEACxqAosN3dQ2Qz_Y2mzpYDI1RRB4TKjghmpRt_mc';
+  const { createClient } = supabase;
+  const sb = createClient(SUPABASE_URL, SUPABASE_ANON);
+
+  let entries = [];
+  let unlockedAchievements = [];
+  let currentUser = null;
+  let currentFilter = 'all';
+  let editingEntryId = null;
+
+  const ALL_CODES = ['B','BY','BW','HB','HH','HE','MV','NI','NW','RP','SH','SN','SA','TH','BB'];
+
+  const ACHIEVEMENTS = [
+    { id:'first', icon:'🎯', name:'Erster Code', desc:'1 Code gesammelt', check:e=>e.length>=1 },
+    { id:'five', icon:'🔥', name:'Auf der Jagd', desc:'5 Codes gesammelt', check:e=>e.length>=5 },
+    { id:'ten', icon:'🏅', name:'Zehn drauf', desc:'10 Codes gesammelt', check:e=>e.length>=10 },
+    { id:'allcodes', icon:'🌍', name:'Alle Codes', desc:'Alle 15 Bundesländer', check:e=>new Set(e.map(x=>x.code)).size>=ALL_CODES.length },
+    { id:'half', icon:'⭐', name:'Halbe Sammlung', desc:'7-8 verschiedene Codes', check:e=>new Set(e.map(x=>x.code)).size>=7 },
+  ];
+
+  async function init() {
+    const { data: { session } } = await sb.auth.getSession();
+    if (!session) { window.location.href = '../../index.html'; return; }
+    currentUser = session.user;
+    document.getElementById('navUser').textContent = currentUser.email;
+    await loadEntries();
+    document.getElementById('loadingScreen').classList.add('hidden');
+    document.getElementById('inputCode').addEventListener('keydown', e => { if(e.key==='Enter') addEntry(); });
+  }
+
+  async function loadEntries() {
+    const { data, error } = await sb.from('kennzeichen').select('*').eq('user_id', currentUser.id).order('created_at', { ascending: false });
+    if (error) return;
+    entries = data || [];
+    unlockedAchievements = ACHIEVEMENTS.filter(a => a.check(entries)).map(a => a.id);
+    renderAll();
+  }
+
+  async function addEntry() {
+    const code = document.getElementById('inputCode').value.trim().toUpperCase();
+    const errEl = document.getElementById('errorMsg');
+    const btn = event.target;
+
+    if (!code) { errEl.textContent = 'Bitte einen Code eingeben!'; errEl.classList.add('show'); return; }
+    if (entries.some(e => e.code === code)) { errEl.textContent = code + ' wurde bereits erfasst!'; errEl.classList.add('show'); return; }
+    errEl.classList.remove('show');
+
+    btn.disabled = true; btn.textContent = 'Speichern…';
+    const { data, error } = await sb.from('kennzeichen').insert({ user_id: currentUser.id, code }).select().single();
+    btn.disabled = false; btn.textContent = '+ Code Erfassen';
+
+    if (error) { errEl.textContent = 'Fehler: ' + error.message; errEl.classList.add('show'); return; }
+    entries.unshift(data);
+    checkAchievements();
+    renderAll();
+    document.getElementById('inputCode').value = '';
+    document.getElementById('inputCode').focus();
+    showToast(code + ' erfasst! 🎯');
+  }
+
+  async function deleteEntry(id) {
+    await sb.from('kennzeichen').delete().eq('id', id).eq('user_id', currentUser.id);
+    entries = entries.filter(e => e.id !== id);
+    renderAll();
+  }
+
+  function openEditModal(id) {
+    editingEntryId = id;
+    const entry = entries.find(e => e.id === id);
+    document.getElementById('modalCode').value = entry.code;
+    document.getElementById('modalError').classList.remove('show');
+    document.getElementById('editModal').classList.add('show');
+  }
+
+  function closeEditModal() {
+    editingEntryId = null;
+    document.getElementById('editModal').classList.remove('show');
+  }
+
+  async function saveEdit() {
+    const code = document.getElementById('modalCode').value.trim().toUpperCase();
+    const errEl = document.getElementById('modalError');
+
+    if (!code) { errEl.textContent = 'Code erforderlich!'; errEl.classList.add('show'); return; }
+    if (entries.some(e => e.id !== editingEntryId && e.code === code)) { errEl.textContent = 'Existiert bereits!'; errEl.classList.add('show'); return; }
+
+    await sb.from('kennzeichen').update({ code, updated_at: new Date().toISOString() }).eq('id', editingEntryId);
+    await loadEntries();
+    closeEditModal();
+    showToast(code + ' aktualisiert!');
+  }
+
+  function checkAchievements() {
+    ACHIEVEMENTS.forEach(a => {
+      if (!unlockedAchievements.includes(a.id) && a.check(entries)) {
+        unlockedAchievements.push(a.id);
+        setTimeout(() => showToast('🏅 ' + a.name), 500);
+      }
+    });
+  }
+
+  function setFilter(f, btn) {
+    currentFilter = f;
+    document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    renderList();
+  }
+
+  function getFiltered() {
+    const q = document.getElementById('searchInput').value.toLowerCase();
+    const now = new Date();
+    return entries.filter(e => {
+      if (currentFilter==='today' && new Date(e.created_at).toDateString()!==now.toDateString()) return false;
+      if (currentFilter==='recent' && (now-new Date(e.created_at))/86400000>7) return false;
+      return !q || e.code.toLowerCase().includes(q);
+    });
+  }
+
+  function renderStats() {
+    const todayStr = new Date().toDateString();
+    document.getElementById('statTotal').textContent = entries.length;
+    document.getElementById('statToday').textContent = entries.filter(e=>new Date(e.created_at).toDateString()===todayStr).length;
+    document.getElementById('statCodes').textContent = entries.length;
+    document.getElementById('statProgress').textContent = Math.round((entries.length / ALL_CODES.length) * 100) + '%';
+  }
+
+  function renderAchievements() {
+    document.getElementById('achievementsGrid').innerHTML = ACHIEVEMENTS.map(a => {
+      const u = unlockedAchievements.includes(a.id);
+      return `<div class="badge ${u?'unlocked':''}"><div class="badge-icon">${a.icon}</div><div class="badge-info"><div class="badge-name">${a.name}</div><div class="badge-desc">${a.desc}</div></div><div class="badge-check">✓</div></div>`;
+    }).join('');
+  }
+
+  function renderCodeRanking() {
+    const codes = Array.from(new Set(entries.map(e=>e.code))).sort();
+    const el = document.getElementById('codeRanking');
+    if (!codes.length) { el.innerHTML = '<div class="code-empty">Noch keine Codes</div>'; return; }
+    el.innerHTML = codes.map((code,i)=>`<div class="code-row"><div class="code-rank">${i+1}</div><div class="code-name">${code}</div><div class="code-bar-wrap"><div class="code-bar-fill" style="width:100%"></div></div><div class="code-count">✓</div></div>`).join('');
+  }
+
+  function renderList() {
+    const grid = document.getElementById('entriesGrid');
+    const filtered = getFiltered();
+    document.getElementById('listCount').textContent = filtered.length + ' Einträge';
+    if (!filtered.length) { grid.innerHTML = '<div class="empty-state"><div class="empty-icon">🚗</div><p>Nichts hier</p></div>'; return; }
+    grid.innerHTML = filtered.map(e=>{
+      const d = new Date(e.updated_at || e.created_at);
+      const dateStr = d.toDateString()===new Date().toDateString() ? 'Heute ' + d.toLocaleTimeString('de',{hour:'2-digit',minute:'2-digit'}) : d.toLocaleDateString('de');
+      return `<div class="entry-card"><div class="entry-code">${e.code}</div><div class="entry-info"><div class="entry-number">erfasst</div></div><div class="entry-date">${dateStr}</div><button class="btn-delete" onclick="openEditModal(${e.id})">✏️</button><button class="btn-delete" onclick="deleteEntry(${e.id})">✕</button></div>`;
+    }).join('');
+  }
+
+  function renderAll() { renderStats(); renderAchievements(); renderCodeRanking(); renderList(); }
+
+  function showToast(msg) {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), 2500);
+  }
+
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') closeEditModal(); });
+  init();
+</script>
