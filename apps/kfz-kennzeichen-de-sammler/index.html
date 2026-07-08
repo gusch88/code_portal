@@ -133,6 +133,16 @@
 
   .toast { position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%) translateY(70px); background: var(--accent); color: #000; padding: 11px 24px; border-radius: 999px; font-family: 'Bebas Neue', sans-serif; font-size: 0.95rem; letter-spacing: 2px; z-index: 999; transition: transform 0.3s; }
   .toast.show { transform: translateX(-50%) translateY(0); }
+
+  .code-suggestions { position: absolute; top: 100%; left: 0; right: 0; background: var(--surface2); border: 1px solid var(--border); border-top: none; border-radius: 0 0 8px 8px; max-height: 180px; overflow-y: auto; display: none; z-index: 10; }
+  .code-suggestions.show { display: block; }
+  .code-suggestion-item { padding: 10px 13px; cursor: pointer; font-family: 'Bebas Neue', sans-serif; font-size: 0.95rem; letter-spacing: 1px; color: var(--text); transition: background 0.1s; border-bottom: 1px solid rgba(42,45,56,0.5); }
+  .code-suggestion-item:hover { background: rgba(245,197,24,0.1); color: var(--accent); }
+  .code-suggestion-item:last-child { border-bottom: none; }
+  .code-suggestion-item.selected { background: rgba(245,197,24,0.15); color: var(--accent); }
+  
+  .field { position: relative; }
+
 </style>
 </head>
 <body>
@@ -149,7 +159,7 @@
   <div class="stats-bar">
     <div class="stat-card"><div class="stat-value" id="statTotal">0</div><div class="stat-label">Gesammelt</div></div>
     <div class="stat-card"><div class="stat-value" id="statToday">0</div><div class="stat-label">Heute</div></div>
-    <div class="stat-card"><div class="stat-value" id="statCodes">0</div><div class="stat-label">Codes</div></div>
+    <div class="stat-card"><div class="stat-value" id="statCodes">0</div><div class="stat-label">Bundesländer</div></div>
     <div class="stat-card"><div class="stat-value" id="statProgress">0%</div><div class="stat-label">Fortschritt</div></div>
   </div>
 
@@ -159,6 +169,7 @@
       <div class="field">
         <label>Bundesland-Code (z.B. B, HH, M)</label>
         <input type="text" id="inputCode" placeholder="z.B. B" maxlength="3" style="text-transform: uppercase;">
+        <div class="code-suggestions" id="codeSuggestions"></div>
       </div>
     </div>
     <div class="error-msg" id="errorMsg"></div>
@@ -171,7 +182,7 @@
       <div class="achievements-grid" id="achievementsGrid"></div>
     </div>
     <div class="section-block">
-      <div class="section-title">Code-Rangliste</div>
+      <div class="section-title">Bundesländer Rangliste</div>
       <div class="code-ranking" id="codeRanking"></div>
     </div>
   </div>
@@ -218,14 +229,13 @@
   let currentUser = null;
   let currentFilter = 'all';
   let editingEntryId = null;
-
-  const ALL_CODES = ['B','BY','BW','HB','HH','HE','MV','NI','NW','RP','SH','SN','SA','TH','BB'];
+  let allCodes = [];
 
   const ACHIEVEMENTS = [
     { id:'first', icon:'🎯', name:'Erster Code', desc:'1 Code gesammelt', check:e=>e.length>=1 },
     { id:'five', icon:'🔥', name:'Auf der Jagd', desc:'5 Codes gesammelt', check:e=>e.length>=5 },
     { id:'ten', icon:'🏅', name:'Zehn drauf', desc:'10 Codes gesammelt', check:e=>e.length>=10 },
-    { id:'allcodes', icon:'🌍', name:'Alle Codes', desc:'Alle 15 Bundesländer', check:e=>new Set(e.map(x=>x.code)).size>=ALL_CODES.length },
+    { id:'allcodes', icon:'🌍', name:'Alle Codes', desc:'Alle 15 Bundesländer', check:e=>new Set(e.map(x=>x.code)).size>=allCodes.length },
     { id:'half', icon:'⭐', name:'Halbe Sammlung', desc:'7-8 verschiedene Codes', check:e=>new Set(e.map(x=>x.code)).size>=7 },
   ];
 
@@ -234,9 +244,25 @@
     if (!session) { window.location.href = '../../index.html'; return; }
     currentUser = session.user;
     document.getElementById('navUser').textContent = currentUser.email;
+    await loadCodes();
     await loadEntries();
     document.getElementById('loadingScreen').classList.add('hidden');
     document.getElementById('inputCode').addEventListener('keydown', e => { if(e.key==='Enter') addEntry(); });
+    document.getElementById('inputCode').addEventListener('input', updateSuggestions);
+    document.addEventListener('click', e => {
+      if (e.target.id !== 'inputCode' && !e.target.closest('.code-suggestions')) {
+        document.getElementById('codeSuggestions').classList.remove('show');
+      }
+    });
+  }
+
+  async function loadCodes() {
+    const { data, error } = await sb.from('bundesland_codes').select('code,name,bundesland').order('code');
+    if (error) {
+      console.error('❌ Fehler beim Laden der Codes:', error);
+      return;
+    }
+    allCodes = data;
   }
 
   async function loadEntries() {
@@ -253,6 +279,7 @@
     const btn = event.target;
 
     if (!code) { errEl.textContent = 'Bitte einen Code eingeben!'; errEl.classList.add('show'); return; }
+    if (!allCodes.some(c => c.code === code)) { errEl.textContent = code + ' ist kein gültiger Code!'; errEl.classList.add('show'); return; }
     if (entries.some(e => e.code === code)) { errEl.textContent = code + ' wurde bereits erfasst!'; errEl.classList.add('show'); return; }
     errEl.classList.remove('show');
 
@@ -265,6 +292,7 @@
     checkAchievements();
     renderAll();
     document.getElementById('inputCode').value = '';
+    document.getElementById('codeSuggestions').classList.remove('show');
     document.getElementById('inputCode').focus();
     showToast(code + ' erfasst! 🎯');
   }
@@ -273,6 +301,36 @@
     await sb.from('kennzeichen').delete().eq('id', id).eq('user_id', currentUser.id);
     entries = entries.filter(e => e.id !== id);
     renderAll();
+  }
+
+  function updateSuggestions() {
+    const input = document.getElementById('inputCode');
+    const suggestionsEl = document.getElementById('codeSuggestions');
+    const query = input.value.trim().toUpperCase();
+
+    if (!query) {
+      suggestionsEl.classList.remove('show');
+      return;
+    }
+
+    const alreadyAdded = entries.map(e => e.code);
+    const suggestions = allCodes.filter(c => c.code.startsWith(query) && !alreadyAdded.includes(c.code));
+
+    if (suggestions.length === 0) {
+      suggestionsEl.classList.remove('show');
+      return;
+    }
+
+    suggestionsEl.innerHTML = suggestions.map(c => 
+      `<div class="code-suggestion-item" onclick="selectSuggestion('${c.code}')">${c.code}</div>`
+    ).join('');
+    suggestionsEl.classList.add('show');
+  }
+
+  function selectSuggestion(code) {
+    document.getElementById('inputCode').value = code;
+    document.getElementById('codeSuggestions').classList.remove('show');
+    document.getElementById('inputCode').focus();
   }
 
   function openEditModal(id) {
@@ -293,6 +351,7 @@
     const errEl = document.getElementById('modalError');
 
     if (!code) { errEl.textContent = 'Code erforderlich!'; errEl.classList.add('show'); return; }
+    if (!allCodes.some(c => c.code === code)) { errEl.textContent = 'Kein gültiger Code!'; errEl.classList.add('show'); return; }
     if (entries.some(e => e.id !== editingEntryId && e.code === code)) { errEl.textContent = 'Existiert bereits!'; errEl.classList.add('show'); return; }
 
     await sb.from('kennzeichen').update({ code, updated_at: new Date().toISOString() }).eq('id', editingEntryId);
@@ -329,10 +388,26 @@
 
   function renderStats() {
     const todayStr = new Date().toDateString();
+    const uniqueBundeslaender = new Set(entries.map(e => {
+      const codeData = allCodes.find(c => c.code === e.code);
+      return codeData ? codeData.bundesland : null;
+    }).filter(b => b)).size;
+    
+    const totalCodes = entries.length;
+    const allCodesCount = allCodes.length;
+    const progressPercent = Math.round((totalCodes / allCodesCount) * 100);
+    
+    console.log('📊 Fortschritt Berechnung:', {
+      'Gesammelte Codes': totalCodes,
+      'Gesamtanzahl Codes': allCodesCount,
+      'Berechnung': `${totalCodes} / ${allCodesCount} * 100`,
+      'Fortschritt': progressPercent + '%'
+    });
+    
     document.getElementById('statTotal').textContent = entries.length;
     document.getElementById('statToday').textContent = entries.filter(e=>new Date(e.created_at).toDateString()===todayStr).length;
-    document.getElementById('statCodes').textContent = entries.length;
-    document.getElementById('statProgress').textContent = Math.round((entries.length / ALL_CODES.length) * 100) + '%';
+    document.getElementById('statCodes').textContent = uniqueBundeslaender;
+    document.getElementById('statProgress').textContent = progressPercent + '%';
   }
 
   function renderAchievements() {
@@ -343,10 +418,40 @@
   }
 
   function renderCodeRanking() {
-    const codes = Array.from(new Set(entries.map(e=>e.code))).sort();
     const el = document.getElementById('codeRanking');
-    if (!codes.length) { el.innerHTML = '<div class="code-empty">Noch keine Codes</div>'; return; }
-    el.innerHTML = codes.map((code,i)=>`<div class="code-row"><div class="code-rank">${i+1}</div><div class="code-name">${code}</div><div class="code-bar-wrap"><div class="code-bar-fill" style="width:100%"></div></div><div class="code-count">✓</div></div>`).join('');
+    
+    // Zähle wie viele Codes pro Bundesland gesammelt wurden
+    const bundeslandCounts = {};
+    entries.forEach(e => {
+      const codeData = allCodes.find(c => c.code === e.code);
+      if (codeData) {
+        const bundesland = codeData.bundesland;
+        bundeslandCounts[bundesland] = (bundeslandCounts[bundesland] || 0) + 1;
+      }
+    });
+
+    // Sortiere nach Häufigkeit (absteigend)
+    const ranking = Object.entries(bundeslandCounts)
+      .map(([bundesland, count]) => ({
+        bundesland,
+        count
+      }))
+      .sort((a, b) => b.count - a.count);
+
+    if (!ranking.length) { 
+      el.innerHTML = '<div class="code-empty">Noch keine Codes</div>'; 
+      return; 
+    }
+
+    const maxCount = Math.max(...ranking.map(r => r.count));
+    el.innerHTML = ranking.map((item, i) => 
+      `<div class="code-row">
+        <div class="code-rank">${i+1}</div>
+        <div class="code-name" title="${item.bundesland}">${item.bundesland}</div>
+        <div class="code-bar-wrap"><div class="code-bar-fill" style="width:${(item.count / maxCount) * 100}%"></div></div>
+        <div class="code-count">${item.count}</div>
+      </div>`
+    ).join('');
   }
 
   function renderList() {
@@ -355,9 +460,12 @@
     document.getElementById('listCount').textContent = filtered.length + ' Einträge';
     if (!filtered.length) { grid.innerHTML = '<div class="empty-state"><div class="empty-icon">🚗</div><p>Nichts hier</p></div>'; return; }
     grid.innerHTML = filtered.map(e=>{
+      const codeData = allCodes.find(c => c.code === e.code);
+      const bundesland = codeData ? codeData.bundesland : '';
+      const name = codeData ? codeData.name : '';
       const d = new Date(e.updated_at || e.created_at);
       const dateStr = d.toDateString()===new Date().toDateString() ? 'Heute ' + d.toLocaleTimeString('de',{hour:'2-digit',minute:'2-digit'}) : d.toLocaleDateString('de');
-      return `<div class="entry-card"><div class="entry-code">${e.code}</div><div class="entry-info"><div class="entry-number">erfasst</div></div><div class="entry-date">${dateStr}</div><button class="btn-delete" onclick="openEditModal(${e.id})">✏️</button><button class="btn-delete" onclick="deleteEntry(${e.id})">✕</button></div>`;
+      return `<div class="entry-card"><div class="entry-code">${e.code}</div><div class="entry-info"><div class="entry-number">${name}</div><div class="entry-desc" style="font-size:0.75rem;color:var(--muted);margin-top:2px">${bundesland}</div></div><div class="entry-date">${dateStr}</div><button class="btn-delete" onclick="openEditModal(${e.id})">✏️</button><button class="btn-delete" onclick="deleteEntry(${e.id})">✕</button></div>`;
     }).join('');
   }
 
