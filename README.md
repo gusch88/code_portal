@@ -57,7 +57,9 @@ git push -u origin main
 
 ---
 
-## Schritt 4 – Netlify Deployment
+## Schritt 4 – Deployment
+
+### Netlify Deployment
 
 1. Gehe zu https://netlify.com und logge dich ein
 2. Klicke **Add new site → Import from Git**
@@ -70,6 +72,21 @@ git push -u origin main
 Netlify gibt dir eine URL wie `https://gapps-abc123.netlify.app`
 
 Optional: Eigene Domain unter **Domain settings** eintragen.
+
+### Vercel Deployment
+
+1. Gehe zu https://vercel.com und logge dich ein
+2. Klicke **New Project**
+3. Verbinde dein GitHub-Konto und wähle das Repository
+4. Bei den Einstellungen:
+   - **Framework Preset**: `Other`
+   - **Build Command**: leer lassen
+   - **Output Directory**: leer lassen
+5. Klicke **Deploy**
+
+Vercel gibt dir eine URL wie `https://dein-projekt.vercel.app`
+
+Optional: Eigene Domain unter **Settings → Domains** eintragen.
 
 ---
 
