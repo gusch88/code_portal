@@ -294,7 +294,9 @@
     document.getElementById('inputCode').value = '';
     document.getElementById('codeSuggestions').classList.remove('show');
     document.getElementById('inputCode').focus();
-    showToast(code + ' erfasst! 🎯');
+    const codeData = allCodes.find(c => c.code === code);
+    const nameLabel = codeData ? `${codeData.name} (${codeData.bundesland})` : '';
+    showToast(`${code} — ${nameLabel} erfasst! 🎯`);
   }
 
   async function deleteEntry(id) {
@@ -357,7 +359,9 @@
     await sb.from('kennzeichen').update({ code, updated_at: new Date().toISOString() }).eq('id', editingEntryId);
     await loadEntries();
     closeEditModal();
-    showToast(code + ' aktualisiert!');
+    const codeData = allCodes.find(c => c.code === code);
+    const nameLabel = codeData ? `${codeData.name} (${codeData.bundesland})` : '';
+    showToast(`${code} — ${nameLabel} aktualisiert!`);
   }
 
   function checkAchievements() {
@@ -471,11 +475,16 @@
 
   function renderAll() { renderStats(); renderAchievements(); renderCodeRanking(); renderList(); }
 
-  function showToast(msg) {
+  function showToast(msg, duration = 10000) {
     const t = document.getElementById('toast');
+    // clear previous timeout if any
+    if (t._toastTimeout) { clearTimeout(t._toastTimeout); t._toastTimeout = null; }
     t.textContent = msg;
     t.classList.add('show');
-    setTimeout(() => t.classList.remove('show'), 2500);
+    // remove on click immediately
+    const hide = () => { t.classList.remove('show'); if (t._toastTimeout) { clearTimeout(t._toastTimeout); t._toastTimeout = null; } };
+    t.onclick = hide;
+    t._toastTimeout = setTimeout(() => { t.classList.remove('show'); t._toastTimeout = null; t.onclick = null; }, duration);
   }
 
   document.addEventListener('keydown', e => { if (e.key === 'Escape') closeEditModal(); });
