@@ -4,6 +4,14 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>KFZ-Kennzeichen Sammler</title>
+
+<!-- PWA -->
+<link rel="manifest" href="./manifest.json">
+<meta name="theme-color" content="#0d0d0f">
+<link rel="apple-touch-icon" href="./icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
@@ -12,7 +20,7 @@
   :root {
     --bg: #0d0d0f; --surface: #16181c; --surface2: #1e2028;
     --border: #2a2d38; --accent: #f5c518; --accent2: #e8a800;
-    --text: #f0f0f2; --muted: #7a7f8e; --red: #ef4444;
+    --text: #f0f0f2; --muted: #7a7f8e; --red: #ef4444; --green: #4ade80;
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body { background: var(--bg); color: var(--text); font-family: 'DM Sans', sans-serif; min-height: 100vh; overflow-x: hidden; }
@@ -37,6 +45,19 @@
   .nav-title { font-family: 'Bebas Neue', sans-serif; font-size: 1.4rem; letter-spacing: 3px; }
   .nav-title span { color: var(--accent); }
   .nav-user { margin-left: auto; font-size: 0.75rem; color: var(--muted); font-family: 'DM Mono', monospace; }
+
+  /* ── Connectivity / Sync indicator ── */
+  .conn-status { display: flex; align-items: center; gap: 6px; font-size: 0.75rem; color: var(--muted); font-family: 'DM Mono', monospace; white-space: nowrap; }
+  .conn-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--green); flex-shrink: 0; transition: background 0.2s; }
+  .conn-status.offline .conn-dot { background: var(--red); }
+  .pending-badge {
+    display: none; align-items: center; gap: 5px; background: rgba(245,197,24,0.12);
+    border: 1px solid rgba(245,197,24,0.35); color: var(--accent); border-radius: 999px;
+    padding: 3px 10px; font-size: 0.72rem; font-family: 'DM Mono', monospace; cursor: default;
+  }
+  .pending-badge.show { display: inline-flex; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+  .pending-badge.syncing { animation: pulse 1.1s ease-in-out infinite; }
 
   .loading-screen {
     position: fixed; inset: 0; background: var(--bg);
@@ -106,10 +127,12 @@
   .entries-grid { display: flex; flex-direction: column; gap: 9px; }
   .entry-card { background: var(--surface); border: 1px solid var(--border); border-radius: 11px; padding: 12px 16px; display: flex; align-items: center; gap: 14px; animation: slideIn 0.22s ease; }
   .entry-card:hover { border-color: rgba(245,197,24,0.3); }
+  .entry-card.pending { border-color: rgba(245,197,24,0.5); border-style: dashed; background: rgba(245,197,24,0.04); }
   @keyframes slideIn { from{opacity:0;transform:translateY(-6px)} to{opacity:1;transform:translateY(0)} }
   .entry-code { font-family: 'Bebas Neue', sans-serif; font-size: 1.2rem; font-weight: 700; color: var(--accent); text-align: center; width: 50px; }
   .entry-info { flex: 1; }
   .entry-number { font-weight: 600; font-size: 0.9rem; }
+  .entry-pending-tag { font-size: 0.68rem; color: var(--accent); font-family: 'DM Mono', monospace; margin-top: 2px; }
   .entry-date { font-size: 0.72rem; color: var(--muted); font-family: 'DM Mono', monospace; white-space: nowrap; }
   .btn-delete { background: none; border: none; color: var(--muted); cursor: pointer; font-size: 1rem; padding: 4px 6px; transition: color 0.15s, background 0.15s; }
   .btn-delete:hover { color: var(--red); background: rgba(239,68,68,0.1); }
@@ -135,6 +158,7 @@
 
   .toast { position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%) translateY(70px); background: var(--accent); color: #000; padding: 11px 24px; border-radius: 999px; font-family: 'Bebas Neue', sans-serif; font-size: 0.95rem; letter-spacing: 2px; z-index: 999; transition: transform 0.3s; }
   .toast.show { transform: translateX(-50%) translateY(0); }
+  .toast.toast-offline { background: var(--surface2); color: var(--accent); border: 1px solid rgba(245,197,24,0.4); }
 
   .code-suggestions { position: absolute; top: 100%; left: 0; right: 0; background: var(--surface2); border: 1px solid var(--border); border-top: none; border-radius: 0 0 8px 8px; max-height: 180px; overflow-y: auto; display: none; z-index: 10; }
   .code-suggestions.show { display: block; }
@@ -142,7 +166,7 @@
   .code-suggestion-item:hover { background: rgba(245,197,24,0.1); color: var(--accent); }
   .code-suggestion-item:last-child { border-bottom: none; }
   .code-suggestion-item.selected { background: rgba(245,197,24,0.15); color: var(--accent); }
-  
+
   .field { position: relative; }
 
   /* --- Karte --- */
@@ -165,6 +189,7 @@
   .leaflet-control-attribution { background: rgba(13,13,15,0.8) !important; color: var(--muted) !important; }
   .leaflet-control-attribution a { color: var(--accent) !important; }
   @media (max-width: 640px) { #map { height: 340px; } }
+  @media (max-width: 640px) { .nav-user { display: none; } }
 
 </style>
 </head>
@@ -175,6 +200,8 @@
 <nav>
   <a class="nav-back" href="../../index.html">← Portal</a>
   <div class="nav-title"><span>KFZ</span>-Kennzeichen</div>
+  <div class="pending-badge" id="pendingBadge" title="Wartet auf Synchronisierung"></div>
+  <div class="conn-status" id="connStatus"><span class="conn-dot"></span><span id="connLabel">Online</span></div>
   <div class="nav-user" id="navUser"></div>
 </nav>
 
@@ -269,6 +296,12 @@
   let kreiseGeoJSON = null;
   let map = null, geoLayer = null, mapRenderer = null;
 
+  // ── Offline-Support: Storage-Keys ───────────────────────────
+  const QUEUE_KEY = 'kfz_offline_queue_v1';
+  const ENTRIES_CACHE_KEY = 'kfz_entries_cache_v1';
+  const CODES_CACHE_KEY = 'kfz_codes_cache_v1';
+  let isSyncing = false;
+
   const ACHIEVEMENTS = [
     { id:'first', icon:'🎯', name:'Erster Code', desc:'1 Code gesammelt', check:e=>e.length>=1 },
     { id:'five', icon:'🔥', name:'Auf der Jagd', desc:'5 Codes gesammelt', check:e=>e.length>=5 },
@@ -288,7 +321,6 @@
     const days = new Set(entries.map(e => new Date(e.created_at).toDateString()));
     let streak = 0;
     const today = new Date();
-    // Count backwards from today while day exists in set
     for (let i = 0; ; i++) {
       const d = new Date(today);
       d.setDate(today.getDate() - i);
@@ -297,11 +329,78 @@
     return streak;
   }
 
+  // ── PWA: Service Worker registrieren ────────────────────────
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('./service-worker.js').catch(err => {
+        console.warn('Service Worker Registrierung fehlgeschlagen:', err);
+      });
+    });
+  }
+
+  // ── Offline-Queue: Helper ───────────────────────────────────
+  function loadQueue() {
+    try { return JSON.parse(localStorage.getItem(QUEUE_KEY)) || []; }
+    catch { return []; }
+  }
+  function saveQueue(queue) {
+    localStorage.setItem(QUEUE_KEY, JSON.stringify(queue));
+    updatePendingBadge(queue.length);
+  }
+  function cacheEntries(list) {
+    try { localStorage.setItem(ENTRIES_CACHE_KEY, JSON.stringify(list)); } catch {}
+  }
+  function readCachedEntries() {
+    try { return JSON.parse(localStorage.getItem(ENTRIES_CACHE_KEY)) || []; }
+    catch { return []; }
+  }
+  function cacheCodes(list) {
+    try { localStorage.setItem(CODES_CACHE_KEY, JSON.stringify(list)); } catch {}
+  }
+  function readCachedCodes() {
+    try { return JSON.parse(localStorage.getItem(CODES_CACHE_KEY)) || []; }
+    catch { return []; }
+  }
+
+  function updatePendingBadge(count) {
+    const el = document.getElementById('pendingBadge');
+    if (count > 0) {
+      el.textContent = `⏳ ${count} wartend`;
+      el.classList.add('show');
+    } else {
+      el.classList.remove('show');
+      el.classList.remove('syncing');
+    }
+  }
+
+  function updateConnStatus() {
+    const el = document.getElementById('connStatus');
+    const label = document.getElementById('connLabel');
+    if (navigator.onLine) {
+      el.classList.remove('offline');
+      label.textContent = 'Online';
+    } else {
+      el.classList.add('offline');
+      label.textContent = 'Offline';
+    }
+  }
+
+  window.addEventListener('online', () => { updateConnStatus(); syncQueue(); });
+  window.addEventListener('offline', updateConnStatus);
+
+  // ── Init ─────────────────────────────────────────────────────
   async function init() {
+    updateConnStatus();
+    updatePendingBadge(loadQueue().length);
+
     const { data: { session } } = await sb.auth.getSession();
-    if (!session) { window.location.href = '../../index.html'; return; }
-    currentUser = session.user;
-    document.getElementById('navUser').textContent = currentUser.email;
+    if (!session) {
+      if (navigator.onLine) { window.location.href = '../../index.html'; return; }
+      // Offline & keine Session bekannt -> nichts zu tun, aber App nicht blockieren
+    }
+    currentUser = session ? session.user : null;
+    if (currentUser) document.getElementById('navUser').textContent = currentUser.email;
+
     await loadCodes();
     await loadEntries();
     await loadMapData();
@@ -314,23 +413,73 @@
         document.getElementById('codeSuggestions').classList.remove('show');
       }
     });
+
+    if (navigator.onLine) syncQueue();
   }
 
   async function loadCodes() {
+    if (!navigator.onLine) {
+      allCodes = readCachedCodes();
+      return;
+    }
     const { data, error } = await sb.from('bundesland_codes').select('code,name,bundesland').order('code');
     if (error) {
       console.error('❌ Fehler beim Laden der Codes:', error);
+      allCodes = readCachedCodes();
       return;
     }
     allCodes = data;
+    cacheCodes(data);
   }
 
   async function loadEntries() {
+    if (!currentUser) {
+      entries = readCachedEntries();
+      unlockedAchievements = ACHIEVEMENTS.filter(a => a.check(entries)).map(a => a.id);
+      mergeQueueIntoEntries();
+      renderAll();
+      return;
+    }
+
+    if (!navigator.onLine) {
+      entries = readCachedEntries();
+      unlockedAchievements = ACHIEVEMENTS.filter(a => a.check(entries)).map(a => a.id);
+      mergeQueueIntoEntries();
+      renderAll();
+      return;
+    }
+
     const { data, error } = await sb.from('kennzeichen').select('*').eq('user_id', currentUser.id).order('created_at', { ascending: false });
-    if (error) return;
+    if (error) {
+      entries = readCachedEntries();
+      mergeQueueIntoEntries();
+      unlockedAchievements = ACHIEVEMENTS.filter(a => a.check(entries)).map(a => a.id);
+      renderAll();
+      return;
+    }
     entries = data || [];
+    cacheEntries(entries);
+    mergeQueueIntoEntries();
     unlockedAchievements = ACHIEVEMENTS.filter(a => a.check(entries)).map(a => a.id);
     renderAll();
+  }
+
+  // Fügt noch nicht synchronisierte Queue-Einträge optisch zur Liste hinzu
+  function mergeQueueIntoEntries() {
+    const queue = loadQueue();
+    queue.forEach(q => {
+      if (!entries.some(e => e._tempId === q.tempId)) {
+        entries.unshift({
+          id: `pending-${q.tempId}`,
+          _tempId: q.tempId,
+          _pending: true,
+          code: q.code,
+          created_at: q.created_at,
+          updated_at: q.created_at,
+          user_id: q.user_id
+        });
+      }
+    });
   }
 
   async function loadMapData() {
@@ -346,7 +495,6 @@
     return (feature.properties.KFZ || '').trim().split(/\s+/).filter(Boolean);
   }
 
-  // 'none' | 'partial' | 'full' — basierend auf allen gültigen Kennzeichen dieses Kreises
   function collectionState(feature) {
     const list = kfzList(feature);
     if (!list.length) return 'none';
@@ -384,8 +532,6 @@
 
     map = L.map('map', { zoomControl: true, attributionControl: true }).setView([51.2, 10.4], 6);
 
-    // SVG-Renderer + Schraffur-Pattern für "teilweise gesammelt" MÜSSEN vor dem
-    // Zeichnen der Kreise existieren, sonst registriert Hover auf der Fläche nicht.
     mapRenderer = L.svg().addTo(map);
     const svgEl = mapRenderer._container;
     const defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
@@ -417,15 +563,39 @@
     });
   }
 
+  // ── Eintrag hinzufügen (online + offline) ───────────────────
   async function addEntry() {
     const code = document.getElementById('inputCode').value.trim().toUpperCase();
     const errEl = document.getElementById('errorMsg');
     const btn = event.target;
 
     if (!code) { errEl.textContent = 'Bitte einen Code eingeben!'; errEl.classList.add('show'); return; }
-    if (!allCodes.some(c => c.code === code)) { errEl.textContent = code + ' ist kein gültiger Code!'; errEl.classList.add('show'); return; }
+    if (allCodes.length && !allCodes.some(c => c.code === code)) { errEl.textContent = code + ' ist kein gültiger Code!'; errEl.classList.add('show'); return; }
     if (entries.some(e => e.code === code)) { errEl.textContent = code + ' wurde bereits erfasst!'; errEl.classList.add('show'); return; }
+    if (!currentUser) { errEl.textContent = 'Bitte zuerst anmelden (sobald wieder online).'; errEl.classList.add('show'); return; }
     errEl.classList.remove('show');
+
+    // ── Offline: in Warteschlange legen ──
+    if (!navigator.onLine) {
+      const tempId = 'q_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
+      const nowIso = new Date().toISOString();
+      const queue = loadQueue();
+      queue.push({ tempId, code, user_id: currentUser.id, created_at: nowIso });
+      saveQueue(queue);
+
+      entries.unshift({
+        id: `pending-${tempId}`, _tempId: tempId, _pending: true,
+        code, created_at: nowIso, updated_at: nowIso, user_id: currentUser.id
+      });
+      cacheEntries(entries.filter(e => !e._pending));
+      checkAchievements();
+      renderAll();
+
+      document.getElementById('inputCode').value = '';
+      document.getElementById('codeSuggestions').classList.remove('show');
+      showToast('📡 Offline gespeichert — wird synchronisiert, sobald du wieder online bist', true);
+      return;
+    }
 
     btn.disabled = true; btn.textContent = 'Speichern…';
     const { data, error } = await sb.from('kennzeichen').insert({ user_id: currentUser.id, code }).select().single();
@@ -433,6 +603,7 @@
 
     if (error) { errEl.textContent = 'Fehler: ' + error.message; errEl.classList.add('show'); return; }
     entries.unshift(data);
+    cacheEntries(entries.filter(e => !e._pending));
     checkAchievements();
     renderAll();
     document.getElementById('inputCode').value = '';
@@ -443,9 +614,59 @@
     showToast(`${code} — ${nameLabel} erfasst! 🎯`);
   }
 
+  // ── Queue mit Supabase synchronisieren ──────────────────────
+  async function syncQueue() {
+    if (isSyncing || !currentUser) return;
+    const queue = loadQueue();
+    if (!queue.length) return;
+
+    isSyncing = true;
+    const badge = document.getElementById('pendingBadge');
+    badge.classList.add('syncing');
+
+    const stillQueued = [];
+    let syncedCount = 0;
+
+    for (const item of queue) {
+      if (!navigator.onLine) { stillQueued.push(item); continue; }
+      try {
+        // Falls der Code inzwischen (auf einem anderen Gerät) schon erfasst wurde, überspringen
+        const { data: existing } = await sb.from('kennzeichen').select('id').eq('user_id', item.user_id).eq('code', item.code).maybeSingle();
+        if (existing) {
+          syncedCount++;
+          continue;
+        }
+        const { error } = await sb.from('kennzeichen').insert({ user_id: item.user_id, code: item.code, created_at: item.created_at });
+        if (error) { stillQueued.push(item); }
+        else { syncedCount++; }
+      } catch (err) {
+        stillQueued.push(item);
+      }
+    }
+
+    saveQueue(stillQueued);
+    isSyncing = false;
+    badge.classList.remove('syncing');
+
+    if (syncedCount > 0) {
+      await loadEntries();
+      showToast(`✓ ${syncedCount} offline erfasste${syncedCount===1?'r':''} Code${syncedCount===1?'':'s'} synchronisiert`);
+    }
+  }
+
   async function deleteEntry(id) {
+    const entry = entries.find(e => e.id === id);
+    if (entry && entry._pending) {
+      // Löscht einen noch nicht synchronisierten Eintrag direkt aus der Queue
+      const queue = loadQueue().filter(q => q.tempId !== entry._tempId);
+      saveQueue(queue);
+      entries = entries.filter(e => e.id !== id);
+      renderAll();
+      return;
+    }
     await sb.from('kennzeichen').delete().eq('id', id).eq('user_id', currentUser.id);
     entries = entries.filter(e => e.id !== id);
+    cacheEntries(entries.filter(e => !e._pending));
     renderAll();
   }
 
@@ -480,8 +701,12 @@
   }
 
   function openEditModal(id) {
-    editingEntryId = id;
     const entry = entries.find(e => e.id === id);
+    if (entry && entry._pending) {
+      showToast('Wartende Einträge können erst nach der Synchronisierung bearbeitet werden.');
+      return;
+    }
+    editingEntryId = id;
     document.getElementById('modalCode').value = entry.code;
     document.getElementById('modalError').classList.remove('show');
     document.getElementById('editModal').classList.add('show');
@@ -493,6 +718,11 @@
   }
 
   async function saveEdit() {
+    if (!navigator.onLine) {
+      document.getElementById('modalError').textContent = 'Bearbeiten ist offline nicht möglich.';
+      document.getElementById('modalError').classList.add('show');
+      return;
+    }
     const code = document.getElementById('modalCode').value.trim().toUpperCase();
     const errEl = document.getElementById('modalError');
 
@@ -543,17 +773,10 @@
 
     const uniqueCodes = new Set(entries.map(e => e.code)).size;
     const totalCodes = entries.length;
-    const allCodesCount = allCodes.length;
+    const allCodesCount = allCodes.length || 1;
     const progressPercent = Math.round((totalCodes / allCodesCount) * 100);
     const currentStreak = getCurrentStreak(entries);
-    
-    console.log('📊 Fortschritt Berechnung:', {
-      'Gesammelte Codes': totalCodes,
-      'Gesamtanzahl Codes': allCodesCount,
-      'Berechnung': `${totalCodes} / ${allCodesCount} * 100`,
-      'Fortschritt': progressPercent + '%'
-    });
-    
+
     document.getElementById('statTotal').textContent = totalCodes;
     document.getElementById('statToday').textContent = entries.filter(e=>new Date(e.created_at).toDateString()===todayStr).length;
     document.getElementById('statCodes').textContent = uniqueBundeslaender;
@@ -570,8 +793,7 @@
 
   function renderCodeRanking() {
     const el = document.getElementById('codeRanking');
-    
-    // Zähle wie viele Codes pro Bundesland gesammelt wurden
+
     const bundeslandCounts = {};
     entries.forEach(e => {
       const codeData = allCodes.find(c => c.code === e.code);
@@ -581,12 +803,8 @@
       }
     });
 
-    // Sortiere nach Häufigkeit (absteigend)
     const ranking = Object.entries(bundeslandCounts)
-      .map(([bundesland, count]) => ({
-        bundesland,
-        count
-      }))
+      .map(([bundesland, count]) => ({ bundesland, count }))
       .sort((a, b) => b.count - a.count);
 
     if (!ranking.length) { 
@@ -618,19 +836,19 @@
       const name = codeData ? codeData.name : '';
       const d = new Date(e.updated_at || e.created_at);
       const dateStr = d.toDateString()===new Date().toDateString() ? 'Heute ' + d.toLocaleTimeString('de',{hour:'2-digit',minute:'2-digit'}) : d.toLocaleDateString('de');
-      return `<div class="entry-card"><div class="entry-code">${e.code}</div><div class="entry-info"><div class="entry-number">${name}</div><div class="entry-desc" style="font-size:0.75rem;color:var(--muted);margin-top:2px">${bundesland}</div></div><div class="entry-date">${dateStr}</div><button class="btn-delete" onclick="openEditModal(${e.id})">✏️</button><button class="btn-delete" onclick="deleteEntry(${e.id})">✕</button></div>`;
+      const pendingTag = e._pending ? '<div class="entry-pending-tag">⏳ wartet auf Synchronisierung</div>' : '';
+      return `<div class="entry-card ${e._pending ? 'pending' : ''}"><div class="entry-code">${e.code}</div><div class="entry-info"><div class="entry-number">${name}</div><div class="entry-desc" style="font-size:0.75rem;color:var(--muted);margin-top:2px">${bundesland}</div>${pendingTag}</div><div class="entry-date">${dateStr}</div><button class="btn-delete" onclick="openEditModal('${e.id}')">✏️</button><button class="btn-delete" onclick="deleteEntry('${e.id}')">✕</button></div>`;
     }).join('');
   }
 
   function renderAll() { renderStats(); renderAchievements(); renderCodeRanking(); renderList(); renderMap(); }
 
-  function showToast(msg, duration = 10000) {
+  function showToast(msg, offlineStyle = false, duration = 10000) {
     const t = document.getElementById('toast');
-    // clear previous timeout if any
     if (t._toastTimeout) { clearTimeout(t._toastTimeout); t._toastTimeout = null; }
     t.textContent = msg;
+    t.classList.toggle('toast-offline', offlineStyle);
     t.classList.add('show');
-    // remove on click immediately
     const hide = () => { t.classList.remove('show'); if (t._toastTimeout) { clearTimeout(t._toastTimeout); t._toastTimeout = null; } };
     t.onclick = hide;
     t._toastTimeout = setTimeout(() => { t.classList.remove('show'); t._toastTimeout = null; t.onclick = null; }, duration);
@@ -639,3 +857,5 @@
   document.addEventListener('keydown', e => { if (e.key === 'Escape') closeEditModal(); });
   init();
 </script>
+</body>
+</html>
