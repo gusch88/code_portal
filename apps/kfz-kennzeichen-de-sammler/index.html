@@ -417,9 +417,23 @@
   const CODES_CACHE_KEY = 'kfz_codes_cache_v1';
   const TAB_KEY = 'kfz_active_tab_v1';
   const SAMMLUNG_VIEW_KEY = 'kfz_sammlung_view_v1';
-  const SESSION_CHIPS_KEY = 'kfz_session_chips_v1';
   const CHIPS_RANDOM_COUNT = 10;
+  const ERROR_MSG_DURATION = 10000;
   let isSyncing = false;
+  let errorMsgTimer = null;
+
+  function showInputError(msg) {
+    const errEl = document.getElementById('errorMsg');
+    errEl.textContent = msg;
+    errEl.classList.add('show');
+    clearTimeout(errorMsgTimer);
+    errorMsgTimer = setTimeout(() => errEl.classList.remove('show'), ERROR_MSG_DURATION);
+  }
+
+  function clearInputError() {
+    clearTimeout(errorMsgTimer);
+    document.getElementById('errorMsg').classList.remove('show');
+  }
 
   const ACHIEVEMENTS = [
     { id:'first', icon:'🎯', name:'Erster Code', desc:'1 Code gesammelt', check:e=>e.length>=1 },
@@ -546,7 +560,7 @@
 
     document.getElementById('loadingScreen').classList.add('hidden');
     document.getElementById('inputCode').addEventListener('keydown', e => { if(e.key==='Enter') addEntry(); });
-    document.getElementById('inputCode').addEventListener('input', () => { updateSuggestions(); updateCodeHint(); });
+    document.getElementById('inputCode').addEventListener('input', () => { clearInputError(); updateSuggestions(); updateCodeHint(); });
     document.addEventListener('click', e => {
       if (e.target.id !== 'inputCode' && !e.target.closest('.code-suggestions')) {
         document.getElementById('codeSuggestions').classList.remove('show');
@@ -713,13 +727,11 @@
   }
 
   async function performAdd(code, btn) {
-    const errEl = document.getElementById('errorMsg');
-
-    if (!code) { errEl.textContent = 'Bitte einen Code eingeben!'; errEl.classList.add('show'); return; }
-    if (allCodes.length && !allCodes.some(c => c.code === code)) { errEl.textContent = code + ' ist kein gültiger Code!'; errEl.classList.add('show'); return; }
-    if (entries.some(e => e.code === code)) { errEl.textContent = code + ' wurde bereits erfasst!'; errEl.classList.add('show'); return; }
-    if (!currentUser) { errEl.textContent = 'Bitte zuerst anmelden (sobald wieder online).'; errEl.classList.add('show'); return; }
-    errEl.classList.remove('show');
+    if (!code) { showInputError('Bitte einen Code eingeben!'); return; }
+    if (allCodes.length && !allCodes.some(c => c.code === code)) { showInputError(code + ' ist kein gültiger Code!'); return; }
+    if (entries.some(e => e.code === code)) { showInputError(code + ' wurde bereits erfasst!'); return; }
+    if (!currentUser) { showInputError('Bitte zuerst anmelden (sobald wieder online).'); return; }
+    clearInputError();
 
     if (!navigator.onLine) {
       const tempId = 'q_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
@@ -747,7 +759,7 @@
     const { data, error } = await sb.from('kennzeichen').insert({ user_id: currentUser.id, code }).select().single();
     if (btn) { btn.disabled = false; btn.textContent = '+ Hinzufügen'; }
 
-    if (error) { errEl.textContent = 'Fehler: ' + error.message; errEl.classList.add('show'); return; }
+    if (error) { showInputError('Fehler: ' + error.message); return; }
     entries.unshift(data);
     cacheEntries(entries.filter(e => !e._pending));
     checkAchievements();
@@ -870,7 +882,7 @@
     }
   }
 
-  // ── Zufällige Codes für die Schnellauswahl: einmal pro Sitzung ──
+  // ── Zufällige Codes für die Schnellauswahl: neu gewürfelt bei jedem Laden ──
   function shuffleArray(arr) {
     const a = [...arr];
     for (let i = a.length - 1; i > 0; i--) {
@@ -880,20 +892,17 @@
     return a;
   }
 
+  let sessionChipCodes = null;
+
   function getSessionChipCodes() {
     if (!allCodes.length) return [];
-    const validCodes = new Set(allCodes.map(c => c.code));
-    let stored = null;
-    try { stored = JSON.parse(sessionStorage.getItem(SESSION_CHIPS_KEY)); } catch {}
-    if (Array.isArray(stored) && stored.length && stored.every(code => validCodes.has(code))) {
-      return stored;
+    if (!sessionChipCodes) {
+      sessionChipCodes = shuffleArray(allCodes).slice(0, CHIPS_RANDOM_COUNT).map(c => c.code);
     }
-    const picked = shuffleArray(allCodes).slice(0, CHIPS_RANDOM_COUNT).map(c => c.code);
-    try { sessionStorage.setItem(SESSION_CHIPS_KEY, JSON.stringify(picked)); } catch {}
-    return picked;
+    return sessionChipCodes;
   }
 
-  // ── Schnellauswahl-Chips: 10 zufällige Codes pro Sitzung ────
+  // ── Schnellauswahl-Chips: 10 zufällige Codes, neu bei jedem Seiten-Reload ──
   function renderChips() {
     const el = document.getElementById('chipsRow');
     if (!allCodes.length) { el.innerHTML = ''; return; }
