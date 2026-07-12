@@ -31,7 +31,7 @@
   }
 
   nav {
-    position: sticky; top: 0; z-index: 50;
+    position: sticky; top: 0; z-index: 60;
     background: rgba(13,13,15,0.92); backdrop-filter: blur(12px);
     border-bottom: 1px solid var(--border);
     display: flex; align-items: center; gap: 16px; padding: 0 24px; height: 56px;
@@ -46,7 +46,6 @@
   .nav-title span { color: var(--accent); }
   .nav-user { margin-left: auto; font-size: 0.75rem; color: var(--muted); font-family: 'DM Mono', monospace; }
 
-  /* ── Connectivity / Sync indicator ── */
   .conn-status { display: flex; align-items: center; gap: 6px; font-size: 0.75rem; color: var(--muted); font-family: 'DM Mono', monospace; white-space: nowrap; }
   .conn-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--green); flex-shrink: 0; transition: background 0.2s; }
   .conn-status.offline .conn-dot { background: var(--red); }
@@ -67,29 +66,79 @@
   }
   .loading-screen.hidden { display: none; }
 
-  .container { max-width: 860px; margin: 0 auto; padding: 28px 20px 60px; position: relative; z-index: 1; }
-  .stats-bar { display: flex; gap: 14px; flex-wrap: wrap; margin-bottom: 24px; }
+  /* ── Quick-Add Bar (immer sichtbar, oberhalb der Tabs) ── */
+  .quickadd-bar {
+    position: sticky; top: 56px; z-index: 55;
+    background: rgba(13,13,15,0.96); backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--border);
+    padding: 14px 20px;
+  }
+  .quickadd-inner { max-width: 860px; margin: 0 auto; }
+  .quickadd-row { display: flex; gap: 10px; position: relative; }
+  .quickadd-row .field { flex: 1; position: relative; margin: 0; }
+  #inputCode {
+    background: var(--surface2); border: 1px solid var(--border); border-radius: 8px;
+    color: var(--text); padding: 10px 13px; font-family: 'DM Mono', monospace; font-size: 0.92rem;
+    outline: none; transition: border-color 0.2s; width: 100%;
+  }
+  #inputCode:focus { border-color: var(--accent); }
+  #inputCode::placeholder { color: var(--muted); }
+  .btn-add-inline {
+    background: var(--accent); color: #000; border: none; border-radius: 8px;
+    padding: 0 20px; font-family: 'Bebas Neue', sans-serif; font-size: 0.95rem; letter-spacing: 1.5px;
+    cursor: pointer; transition: background 0.15s, transform 0.1s; white-space: nowrap;
+  }
+  .btn-add-inline:hover { background: var(--accent2); }
+  .btn-add-inline:active { transform: scale(0.97); }
+  .btn-add-inline:disabled { opacity: 0.5; cursor: not-allowed; }
+  .error-msg { color: var(--red); font-size: 0.8rem; margin-top: 8px; display: none; }
+  .error-msg.show { display: block; }
+
+  .chips-row { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 10px; align-items: center; }
+  .chips-label { font-size: 0.7rem; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; margin-right: 2px; }
+  .chip {
+    background: var(--surface2); border: 1px solid var(--border); border-radius: 999px;
+    padding: 5px 12px; font-size: 0.78rem; font-family: 'DM Mono', monospace; color: var(--accent);
+    cursor: pointer; transition: all 0.15s; line-height: 1;
+  }
+  .chip:hover { background: rgba(245,197,24,0.12); border-color: var(--accent); }
+  .chip-more { color: var(--muted); cursor: default; }
+  .chip-more:hover { background: var(--surface2); border-color: var(--border); }
+
+  .code-suggestions { position: absolute; top: 100%; left: 0; right: 0; margin-top: 4px; background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; max-height: 180px; overflow-y: auto; display: none; z-index: 10; box-shadow: 0 12px 32px rgba(0,0,0,0.4); }
+  .code-suggestions.show { display: block; }
+  .code-suggestion-item { padding: 10px 13px; cursor: pointer; font-family: 'Bebas Neue', sans-serif; font-size: 0.95rem; letter-spacing: 1px; color: var(--text); transition: background 0.1s; border-bottom: 1px solid rgba(42,45,56,0.5); }
+  .code-suggestion-item:hover { background: rgba(245,197,24,0.1); color: var(--accent); }
+  .code-suggestion-item:last-child { border-bottom: none; }
+
+  /* ── Tabs ── */
+  .tabs-nav {
+    position: sticky; z-index: 45;
+    background: var(--bg);
+    border-bottom: 1px solid var(--border);
+    display: flex; gap: 4px; padding: 0 20px; overflow-x: auto;
+  }
+  .tabs-inner-wrap { max-width: 860px; margin: 0 auto; display: flex; gap: 4px; width: 100%; }
+  .tab-btn {
+    background: none; border: none; color: var(--muted); cursor: pointer;
+    font-family: 'Bebas Neue', sans-serif; font-size: 1rem; letter-spacing: 2px;
+    padding: 13px 18px 11px; white-space: nowrap; border-bottom: 2px solid transparent;
+    transition: color 0.15s, border-color 0.15s;
+  }
+  .tab-btn:hover { color: var(--text); }
+  .tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+  .tab-panel { display: none; }
+  .tab-panel.active { display: block; }
+
+  .container { max-width: 860px; margin: 0 auto; padding: 24px 20px 60px; position: relative; z-index: 1; }
+  .stats-bar { display: flex; gap: 14px; flex-wrap: wrap; margin-bottom: 20px; }
   .stat-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 14px 18px; flex: 1; min-width: 110px; }
   .stat-value { font-family: 'Bebas Neue', sans-serif; font-size: 2rem; color: var(--accent); line-height: 1; }
   .stat-label { font-size: 0.72rem; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; margin-top: 2px; }
 
-  .input-section { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 22px; margin-bottom: 24px; }
   .section-title { font-family: 'Bebas Neue', sans-serif; font-size: 1.15rem; letter-spacing: 2px; color: var(--muted); margin-bottom: 16px; }
 
-  .form-row { display: grid; grid-template-columns: 1fr; gap: 13px; margin-bottom: 14px; }
-  .field { display: flex; flex-direction: column; gap: 5px; }
-  label { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 1.5px; color: var(--muted); }
-  input { background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; color: var(--text); padding: 10px 13px; font-family: 'DM Mono', monospace; font-size: 0.9rem; outline: none; transition: border-color 0.2s; width: 100%; }
-  input:focus { border-color: var(--accent); }
-  input::placeholder { color: var(--muted); }
-  .btn-add { background: var(--accent); color: #000; border: none; border-radius: 8px; padding: 12px; font-family: 'Bebas Neue', sans-serif; font-size: 1.05rem; letter-spacing: 2px; cursor: pointer; transition: background 0.15s, transform 0.1s; width: 100%; }
-  .btn-add:hover { background: var(--accent2); }
-  .btn-add:active { transform: scale(0.98); }
-  .btn-add:disabled { opacity: 0.5; cursor: not-allowed; }
-  .error-msg { color: var(--red); font-size: 0.8rem; margin-top: -6px; display: none; }
-  .error-msg.show { display: block; }
-
-  .game-row { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; margin-bottom: 24px; }
+  .game-row { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
   .section-block { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 20px 22px; }
 
   .achievements-grid { display: flex; flex-direction: column; gap: 7px; margin-top: 4px; }
@@ -139,6 +188,16 @@
   .empty-state { text-align: center; padding: 44px 20px; color: var(--muted); }
   .empty-icon { font-size: 2.8rem; margin-bottom: 10px; opacity: 0.35; }
 
+  /* ── Übersicht: zuletzt erfasst ── */
+  .recent-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+  .recent-list { display: flex; flex-direction: column; gap: 8px; }
+  .recent-item { display: flex; align-items: center; gap: 12px; background: var(--surface2); border: 1px solid var(--border); border-radius: 9px; padding: 9px 12px; }
+  .recent-code { font-family: 'Bebas Neue', sans-serif; font-size: 1rem; color: var(--accent); width: 40px; text-align: center; flex-shrink: 0; }
+  .recent-name { font-size: 0.82rem; flex: 1; }
+  .recent-date { font-size: 0.7rem; color: var(--muted); font-family: 'DM Mono', monospace; }
+  .link-btn { background: none; border: none; color: var(--accent); font-size: 0.78rem; cursor: pointer; font-family: 'DM Sans', sans-serif; font-weight: 600; }
+  .link-btn:hover { text-decoration: underline; }
+
   .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.6); display: none; align-items: center; justify-content: center; z-index: 300; backdrop-filter: blur(4px); }
   .modal-overlay.show { display: flex; }
   .modal-content { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 28px; max-width: 420px; width: 90%; box-shadow: 0 24px 64px rgba(0,0,0,0.6); }
@@ -160,18 +219,9 @@
   .toast.show { transform: translateX(-50%) translateY(0); }
   .toast.toast-offline { background: var(--surface2); color: var(--accent); border: 1px solid rgba(245,197,24,0.4); }
 
-  .code-suggestions { position: absolute; top: 100%; left: 0; right: 0; background: var(--surface2); border: 1px solid var(--border); border-top: none; border-radius: 0 0 8px 8px; max-height: 180px; overflow-y: auto; display: none; z-index: 10; }
-  .code-suggestions.show { display: block; }
-  .code-suggestion-item { padding: 10px 13px; cursor: pointer; font-family: 'Bebas Neue', sans-serif; font-size: 0.95rem; letter-spacing: 1px; color: var(--text); transition: background 0.1s; border-bottom: 1px solid rgba(42,45,56,0.5); }
-  .code-suggestion-item:hover { background: rgba(245,197,24,0.1); color: var(--accent); }
-  .code-suggestion-item:last-child { border-bottom: none; }
-  .code-suggestion-item.selected { background: rgba(245,197,24,0.15); color: var(--accent); }
-
-  .field { position: relative; }
-
   /* --- Karte --- */
-  #mapSection { margin-bottom: 24px; }
-  .map-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+  #mapSection { }
+  .map-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; flex-wrap: wrap; gap: 10px; }
   .map-legend { display: flex; gap: 16px; flex-wrap: wrap; font-size: 0.75rem; color: var(--muted); }
   .map-legend-item { display: flex; align-items: center; gap: 6px; }
   .map-legend-swatch { width: 13px; height: 13px; border-radius: 3px; flex-shrink: 0; }
@@ -189,7 +239,7 @@
   .leaflet-control-attribution { background: rgba(13,13,15,0.8) !important; color: var(--muted) !important; }
   .leaflet-control-attribution a { color: var(--accent) !important; }
   @media (max-width: 640px) { #map { height: 340px; } }
-  @media (max-width: 640px) { .nav-user { display: none; } }
+  @media (max-width: 640px) { .nav-user { display: none; } .game-row { grid-template-columns: 1fr; } }
 
 </style>
 </head>
@@ -205,63 +255,95 @@
   <div class="nav-user" id="navUser"></div>
 </nav>
 
-<div class="container">
-  <div class="stats-bar">
-    <div class="stat-card"><div class="stat-value" id="statTotal">0</div><div class="stat-label">Gesammelt</div></div>
-    <div class="stat-card"><div class="stat-value" id="statToday">0</div><div class="stat-label">Heute</div></div>
-    <div class="stat-card"><div class="stat-value" id="statCodes">0</div><div class="stat-label">Bundesländer</div></div>
-    <div class="stat-card"><div class="stat-value" id="statStreak">0</div><div class="stat-label">Serie (Tage)</div></div>
-    <div class="stat-card"><div class="stat-value" id="statProgress">0%</div><div class="stat-label">Fortschritt</div></div>
-  </div>
-
-  <div class="input-section">
-    <div class="section-title">Neuer Code</div>
-    <div class="form-row">
+<!-- Quick-Add: immer sichtbar, unabhängig vom Tab -->
+<div class="quickadd-bar">
+  <div class="quickadd-inner">
+    <div class="quickadd-row">
       <div class="field">
-        <label>Bundesland-Code (z.B. B, HH, M)</label>
-        <input type="text" id="inputCode" placeholder="z.B. B" maxlength="3" style="text-transform: uppercase;">
+        <input type="text" id="inputCode" placeholder="Code eingeben, z.B. B" maxlength="3" style="text-transform: uppercase;">
         <div class="code-suggestions" id="codeSuggestions"></div>
       </div>
+      <button class="btn-add-inline" id="btnAdd" onclick="addEntry()">+ Hinzufügen</button>
     </div>
     <div class="error-msg" id="errorMsg"></div>
-    <button class="btn-add" onclick="addEntry()">+ Code Erfassen</button>
+    <div class="chips-row" id="chipsRow"></div>
+  </div>
+</div>
+
+<div class="tabs-nav" style="top:0">
+  <div class="tabs-inner-wrap">
+    <button class="tab-btn active" data-tab="uebersicht" onclick="setTab('uebersicht')">Übersicht</button>
+    <button class="tab-btn" data-tab="sammlung" onclick="setTab('sammlung')">Sammlung</button>
+    <button class="tab-btn" data-tab="karte" onclick="setTab('karte')">Karte</button>
+    <button class="tab-btn" data-tab="rangliste" onclick="setTab('rangliste')">Rangliste</button>
+  </div>
+</div>
+
+<div class="container">
+
+  <!-- ═══ TAB: Übersicht ═══ -->
+  <div class="tab-panel active" id="panel-uebersicht">
+    <div class="stats-bar">
+      <div class="stat-card"><div class="stat-value" id="statTotal">0</div><div class="stat-label">Gesammelt</div></div>
+      <div class="stat-card"><div class="stat-value" id="statToday">0</div><div class="stat-label">Heute</div></div>
+      <div class="stat-card"><div class="stat-value" id="statCodes">0</div><div class="stat-label">Bundesländer</div></div>
+      <div class="stat-card"><div class="stat-value" id="statStreak">0</div><div class="stat-label">Serie (Tage)</div></div>
+      <div class="stat-card"><div class="stat-value" id="statProgress">0%</div><div class="stat-label">Fortschritt</div></div>
+    </div>
+
+    <div class="section-block">
+      <div class="recent-row">
+        <div class="section-title" style="margin-bottom:0">Zuletzt erfasst</div>
+        <button class="link-btn" onclick="setTab('sammlung')">Alle ansehen →</button>
+      </div>
+      <div class="recent-list" id="recentPreview"></div>
+    </div>
   </div>
 
-  <div class="game-row">
-    <div class="section-block">
-      <div class="section-title">Achievements</div>
-      <div class="achievements-grid" id="achievementsGrid"></div>
+  <!-- ═══ TAB: Sammlung ═══ -->
+  <div class="tab-panel" id="panel-sammlung">
+    <div class="toolbar">
+      <input type="text" class="search-input" id="searchInput" placeholder="🔍 Suchen…" oninput="renderList()">
+      <button class="filter-btn active" onclick="setFilter('all',this)">Alle</button>
+      <button class="filter-btn" onclick="setFilter('today',this)">Heute</button>
+      <button class="filter-btn" onclick="setFilter('recent',this)">Diese Woche</button>
     </div>
-    <div class="section-block">
-      <div class="section-title">Bundesländer Rangliste</div>
-      <div class="code-ranking" id="codeRanking"></div>
+    <div class="list-header">
+      <span>Gesammelte Codes</span>
+      <span id="listCount" style="font-size:0.82rem;color:var(--muted)"></span>
+    </div>
+    <div class="entries-grid" id="entriesGrid"></div>
+  </div>
+
+  <!-- ═══ TAB: Karte ═══ -->
+  <div class="tab-panel" id="panel-karte">
+    <div id="mapSection">
+      <div class="map-head">
+        <div class="section-title" style="margin-bottom:0">Deutschlandkarte</div>
+        <div class="map-legend">
+          <div class="map-legend-item"><div class="map-legend-swatch" style="background:var(--accent);"></div>Vollständig</div>
+          <div class="map-legend-item"><div class="map-legend-swatch" style="background:repeating-linear-gradient(45deg,var(--accent) 0,var(--accent) 2px,var(--surface2) 2px,var(--surface2) 5px);border:1px solid var(--accent2)"></div>Teilweise</div>
+          <div class="map-legend-item"><div class="map-legend-swatch" style="background:var(--surface2);border:1px solid var(--border)"></div>Offen</div>
+        </div>
+      </div>
+      <div id="map"></div>
     </div>
   </div>
 
-  <div id="mapSection" class="section-block">
-    <div class="map-head">
-      <div class="section-title" style="margin-bottom:0">Deutschlandkarte</div>
-      <div class="map-legend">
-        <div class="map-legend-item"><div class="map-legend-swatch" style="background:var(--accent);"></div>Vollständig</div>
-        <div class="map-legend-item"><div class="map-legend-swatch" style="background:repeating-linear-gradient(45deg,var(--accent) 0,var(--accent) 2px,var(--surface2) 2px,var(--surface2) 5px);border:1px solid var(--accent2)"></div>Teilweise</div>
-        <div class="map-legend-item"><div class="map-legend-swatch" style="background:var(--surface2);border:1px solid var(--border)"></div>Offen</div>
+  <!-- ═══ TAB: Rangliste ═══ -->
+  <div class="tab-panel" id="panel-rangliste">
+    <div class="game-row">
+      <div class="section-block">
+        <div class="section-title">Achievements</div>
+        <div class="achievements-grid" id="achievementsGrid"></div>
+      </div>
+      <div class="section-block">
+        <div class="section-title">Bundesländer Rangliste</div>
+        <div class="code-ranking" id="codeRanking"></div>
       </div>
     </div>
-    <div id="map"></div>
   </div>
 
-  <div class="toolbar">
-    <input type="text" class="search-input" id="searchInput" placeholder="🔍 Suchen…" oninput="renderList()">
-    <button class="filter-btn active" onclick="setFilter('all',this)">Alle</button>
-    <button class="filter-btn" onclick="setFilter('today',this)">Heute</button>
-    <button class="filter-btn" onclick="setFilter('recent',this)">Diese Woche</button>
-  </div>
-
-  <div class="list-header">
-    <span>Gesammelte Codes</span>
-    <span id="listCount" style="font-size:0.82rem;color:var(--muted)"></span>
-  </div>
-  <div class="entries-grid" id="entriesGrid"></div>
 </div>
 
 <div class="modal-overlay" id="editModal">
@@ -295,11 +377,13 @@
   let allCodes = [];
   let kreiseGeoJSON = null;
   let map = null, geoLayer = null, mapRenderer = null;
+  let currentTab = 'uebersicht';
 
-  // ── Offline-Support: Storage-Keys ───────────────────────────
   const QUEUE_KEY = 'kfz_offline_queue_v1';
   const ENTRIES_CACHE_KEY = 'kfz_entries_cache_v1';
   const CODES_CACHE_KEY = 'kfz_codes_cache_v1';
+  const TAB_KEY = 'kfz_active_tab_v1';
+  const CHIPS_LIMIT = 8;
   let isSyncing = false;
 
   const ACHIEVEMENTS = [
@@ -315,7 +399,6 @@
     { id:'allcodes', icon:'🌍', name:'Alle Codes', desc:'Alle 16 Bundesländer', check:e=>new Set(e.map(x=>x.code)).size>=allCodes.length },
   ];
 
-  // Hilfsfunktion: aktuelle tägliche Serie (Anzahl aufeinanderfolgender Tage, endet heute)
   function getCurrentStreak(entries) {
     if (!entries || !entries.length) return 0;
     const days = new Set(entries.map(e => new Date(e.created_at).toDateString()));
@@ -329,7 +412,6 @@
     return streak;
   }
 
-  // ── PWA: Service Worker registrieren ────────────────────────
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
       navigator.serviceWorker.register('./service-worker.js').catch(err => {
@@ -388,6 +470,23 @@
   window.addEventListener('online', () => { updateConnStatus(); syncQueue(); });
   window.addEventListener('offline', updateConnStatus);
 
+  // ── Tabs ─────────────────────────────────────────────────────
+  function setTab(tab) {
+    currentTab = tab;
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+    document.getElementById('panel-' + tab).classList.add('active');
+    localStorage.setItem(TAB_KEY, tab);
+
+    if (tab === 'karte') {
+      if (!map) {
+        initMap();
+      } else {
+        setTimeout(() => map.invalidateSize(), 50);
+      }
+    }
+  }
+
   // ── Init ─────────────────────────────────────────────────────
   async function init() {
     updateConnStatus();
@@ -396,7 +495,6 @@
     const { data: { session } } = await sb.auth.getSession();
     if (!session) {
       if (navigator.onLine) { window.location.href = '../../index.html'; return; }
-      // Offline & keine Session bekannt -> nichts zu tun, aber App nicht blockieren
     }
     currentUser = session ? session.user : null;
     if (currentUser) document.getElementById('navUser').textContent = currentUser.email;
@@ -404,7 +502,10 @@
     await loadCodes();
     await loadEntries();
     await loadMapData();
-    initMap();
+
+    const savedTab = localStorage.getItem(TAB_KEY) || 'uebersicht';
+    setTab(savedTab);
+
     document.getElementById('loadingScreen').classList.add('hidden');
     document.getElementById('inputCode').addEventListener('keydown', e => { if(e.key==='Enter') addEntry(); });
     document.getElementById('inputCode').addEventListener('input', updateSuggestions);
@@ -464,7 +565,6 @@
     renderAll();
   }
 
-  // Fügt noch nicht synchronisierte Queue-Einträge optisch zur Liste hinzu
   function mergeQueueIntoEntries() {
     const queue = loadQueue();
     queue.forEach(q => {
@@ -553,6 +653,7 @@
     }).addTo(map);
 
     map.fitBounds(geoLayer.getBounds(), { padding: [8, 8] });
+    setTimeout(() => map.invalidateSize(), 60);
   }
 
   function renderMap() {
@@ -563,11 +664,18 @@
     });
   }
 
-  // ── Eintrag hinzufügen (online + offline) ───────────────────
+  // ── Eintrag hinzufügen (Button ODER Chip) ───────────────────
   async function addEntry() {
     const code = document.getElementById('inputCode').value.trim().toUpperCase();
+    await performAdd(code, document.getElementById('btnAdd'));
+  }
+
+  async function quickAdd(code) {
+    await performAdd(code, null);
+  }
+
+  async function performAdd(code, btn) {
     const errEl = document.getElementById('errorMsg');
-    const btn = event.target;
 
     if (!code) { errEl.textContent = 'Bitte einen Code eingeben!'; errEl.classList.add('show'); return; }
     if (allCodes.length && !allCodes.some(c => c.code === code)) { errEl.textContent = code + ' ist kein gültiger Code!'; errEl.classList.add('show'); return; }
@@ -575,7 +683,6 @@
     if (!currentUser) { errEl.textContent = 'Bitte zuerst anmelden (sobald wieder online).'; errEl.classList.add('show'); return; }
     errEl.classList.remove('show');
 
-    // ── Offline: in Warteschlange legen ──
     if (!navigator.onLine) {
       const tempId = 'q_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
       const nowIso = new Date().toISOString();
@@ -597,9 +704,9 @@
       return;
     }
 
-    btn.disabled = true; btn.textContent = 'Speichern…';
+    if (btn) { btn.disabled = true; btn.textContent = '…'; }
     const { data, error } = await sb.from('kennzeichen').insert({ user_id: currentUser.id, code }).select().single();
-    btn.disabled = false; btn.textContent = '+ Code Erfassen';
+    if (btn) { btn.disabled = false; btn.textContent = '+ Hinzufügen'; }
 
     if (error) { errEl.textContent = 'Fehler: ' + error.message; errEl.classList.add('show'); return; }
     entries.unshift(data);
@@ -614,7 +721,6 @@
     showToast(`${code} — ${nameLabel} erfasst! 🎯`);
   }
 
-  // ── Queue mit Supabase synchronisieren ──────────────────────
   async function syncQueue() {
     if (isSyncing || !currentUser) return;
     const queue = loadQueue();
@@ -630,7 +736,6 @@
     for (const item of queue) {
       if (!navigator.onLine) { stillQueued.push(item); continue; }
       try {
-        // Falls der Code inzwischen (auf einem anderen Gerät) schon erfasst wurde, überspringen
         const { data: existing } = await sb.from('kennzeichen').select('id').eq('user_id', item.user_id).eq('code', item.code).maybeSingle();
         if (existing) {
           syncedCount++;
@@ -657,7 +762,6 @@
   async function deleteEntry(id) {
     const entry = entries.find(e => e.id === id);
     if (entry && entry._pending) {
-      // Löscht einen noch nicht synchronisierten Eintrag direkt aus der Queue
       const queue = loadQueue().filter(q => q.tempId !== entry._tempId);
       saveQueue(queue);
       entries = entries.filter(e => e.id !== id);
@@ -698,6 +802,27 @@
     document.getElementById('inputCode').value = code;
     document.getElementById('codeSuggestions').classList.remove('show');
     document.getElementById('inputCode').focus();
+  }
+
+  // ── Schnellauswahl-Chips: noch fehlende Codes ───────────────
+  function renderChips() {
+    const el = document.getElementById('chipsRow');
+    if (!allCodes.length) { el.innerHTML = ''; return; }
+    const have = new Set(entries.map(e => e.code));
+    const missing = allCodes.filter(c => !have.has(c.code));
+
+    if (!missing.length) {
+      el.innerHTML = '<span class="chips-label">🎉 Alle Codes gesammelt!</span>';
+      return;
+    }
+
+    const shown = missing.slice(0, CHIPS_LIMIT);
+    const rest = missing.length - shown.length;
+
+    let html = '<span class="chips-label">Noch offen:</span>';
+    html += shown.map(c => `<button class="chip" onclick="quickAdd('${c.code}')" title="${c.name} (${c.bundesland})">${c.code}</button>`).join('');
+    if (rest > 0) html += `<span class="chip chip-more">+ ${rest} weitere</span>`;
+    el.innerHTML = html;
   }
 
   function openEditModal(id) {
@@ -771,7 +896,6 @@
       return codeData ? codeData.bundesland : null;
     }).filter(b => b)).size;
 
-    const uniqueCodes = new Set(entries.map(e => e.code)).size;
     const totalCodes = entries.length;
     const allCodesCount = allCodes.length || 1;
     const progressPercent = Math.round((totalCodes / allCodesCount) * 100);
@@ -782,6 +906,22 @@
     document.getElementById('statCodes').textContent = uniqueBundeslaender;
     document.getElementById('statStreak').textContent = currentStreak;
     document.getElementById('statProgress').textContent = progressPercent + '%';
+  }
+
+  function renderRecentPreview() {
+    const el = document.getElementById('recentPreview');
+    const recent = entries.slice(0, 3);
+    if (!recent.length) {
+      el.innerHTML = '<div class="empty-state" style="padding:24px 10px;"><div class="empty-icon" style="font-size:2rem;">🚗</div><p>Noch nichts erfasst — leg oben los!</p></div>';
+      return;
+    }
+    el.innerHTML = recent.map(e => {
+      const codeData = allCodes.find(c => c.code === e.code);
+      const name = codeData ? codeData.name : '';
+      const d = new Date(e.updated_at || e.created_at);
+      const dateStr = d.toDateString()===new Date().toDateString() ? 'Heute ' + d.toLocaleTimeString('de',{hour:'2-digit',minute:'2-digit'}) : d.toLocaleDateString('de');
+      return `<div class="recent-item"><div class="recent-code">${e.code}</div><div class="recent-name">${name}${e._pending ? ' <span style="color:var(--accent);font-size:0.7rem;">⏳</span>' : ''}</div><div class="recent-date">${dateStr}</div></div>`;
+    }).join('');
   }
 
   function renderAchievements() {
@@ -841,7 +981,15 @@
     }).join('');
   }
 
-  function renderAll() { renderStats(); renderAchievements(); renderCodeRanking(); renderList(); renderMap(); }
+  function renderAll() {
+    renderStats();
+    renderRecentPreview();
+    renderAchievements();
+    renderCodeRanking();
+    renderList();
+    renderChips();
+    renderMap();
+  }
 
   function showToast(msg, offlineStyle = false, duration = 10000) {
     const t = document.getElementById('toast');

@@ -4,7 +4,7 @@
 // über das Netzwerk bzw. werden von der Offline-Queue in index.html
 // zwischengespeichert.
 
-const CACHE_VERSION = 'kfz-sammler-v1';
+const CACHE_VERSION = 'kfz-sammler-v2';
 const CACHE_NAME = CACHE_VERSION;
 
 // Eigene Dateien (same-origin) – müssen bei jedem Deploy relativ zu
