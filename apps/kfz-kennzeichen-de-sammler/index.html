@@ -827,7 +827,7 @@
   }
 
   function requestDeleteEntry(id) {
-    const entry = entries.find(e => e.id === id);
+    const entry = entries.find(e => String(e.id) === String(id));
     if (!entry) return;
     pendingDeleteId = id;
     const codeData = allCodes.find(c => c.code === entry.code);
@@ -848,11 +848,11 @@
   }
 
   async function deleteEntry(id) {
-    const entry = entries.find(e => e.id === id);
+    const entry = entries.find(e => String(e.id) === String(id));
     if (entry && entry._pending) {
       const queue = loadQueue().filter(q => q.tempId !== entry._tempId);
       saveQueue(queue);
-      entries = entries.filter(e => e.id !== id);
+      entries = entries.filter(e => String(e.id) !== String(id));
       renderAll();
       return;
     }
@@ -865,7 +865,7 @@
       showToast('Löschen fehlgeschlagen: kein Eintrag entfernt (Berechtigung prüfen).');
       return;
     }
-    entries = entries.filter(e => e.id !== id);
+    entries = entries.filter(e => String(e.id) !== String(id));
     cacheEntries(entries.filter(e => !e._pending));
     renderAll();
   }
@@ -966,7 +966,7 @@
   }
 
   function openEditModal(id) {
-    const entry = entries.find(e => e.id === id);
+    const entry = entries.find(e => String(e.id) === String(id));
     if (entry && entry._pending) {
       showToast('Wartende Einträge können erst nach der Synchronisierung bearbeitet werden.');
       return;
@@ -993,7 +993,7 @@
 
     if (!code) { errEl.textContent = 'Code erforderlich!'; errEl.classList.add('show'); return; }
     if (!allCodes.some(c => c.code === code)) { errEl.textContent = 'Kein gültiger Code!'; errEl.classList.add('show'); return; }
-    if (entries.some(e => e.id !== editingEntryId && e.code === code)) { errEl.textContent = 'Existiert bereits!'; errEl.classList.add('show'); return; }
+    if (entries.some(e => String(e.id) !== String(editingEntryId) && e.code === code)) { errEl.textContent = 'Existiert bereits!'; errEl.classList.add('show'); return; }
 
     await sb.from('kennzeichen').update({ code, updated_at: new Date().toISOString() }).eq('id', editingEntryId);
     await loadEntries();
