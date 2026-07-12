@@ -417,6 +417,8 @@
   const CODES_CACHE_KEY = 'kfz_codes_cache_v1';
   const TAB_KEY = 'kfz_active_tab_v1';
   const SAMMLUNG_VIEW_KEY = 'kfz_sammlung_view_v1';
+  const SESSION_CHIPS_KEY = 'kfz_session_chips_v1';
+  const CHIPS_RANDOM_COUNT = 10;
   let isSyncing = false;
 
   const ACHIEVEMENTS = [
@@ -868,15 +870,39 @@
     }
   }
 
-  // ── Schnellauswahl-Chips: noch fehlende Codes ───────────────
+  // ── Zufällige Codes für die Schnellauswahl: einmal pro Sitzung ──
+  function shuffleArray(arr) {
+    const a = [...arr];
+    for (let i = a.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [a[i], a[j]] = [a[j], a[i]];
+    }
+    return a;
+  }
+
+  function getSessionChipCodes() {
+    if (!allCodes.length) return [];
+    const validCodes = new Set(allCodes.map(c => c.code));
+    let stored = null;
+    try { stored = JSON.parse(sessionStorage.getItem(SESSION_CHIPS_KEY)); } catch {}
+    if (Array.isArray(stored) && stored.length && stored.every(code => validCodes.has(code))) {
+      return stored;
+    }
+    const picked = shuffleArray(allCodes).slice(0, CHIPS_RANDOM_COUNT).map(c => c.code);
+    try { sessionStorage.setItem(SESSION_CHIPS_KEY, JSON.stringify(picked)); } catch {}
+    return picked;
+  }
+
+  // ── Schnellauswahl-Chips: 10 zufällige Codes pro Sitzung ────
   function renderChips() {
     const el = document.getElementById('chipsRow');
     if (!allCodes.length) { el.innerHTML = ''; return; }
+    const chipCodes = getSessionChipCodes().map(code => allCodes.find(c => c.code === code)).filter(Boolean);
     const have = new Set(entries.map(e => e.code));
-    const allCollected = allCodes.every(c => have.has(c.code));
+    const allCollected = chipCodes.every(c => have.has(c.code));
 
-    let html = `<span class="chips-label">${allCollected ? '🎉 Alle Codes gesammelt!' : 'Alle Kennzeichen:'}</span>`;
-    html += allCodes.map(c => {
+    let html = `<span class="chips-label">${allCollected ? '🎉 Auswahl komplett gesammelt!' : 'Schnellauswahl:'}</span>`;
+    html += chipCodes.map(c => {
       const title = `${c.name} (${c.bundesland})`;
       if (have.has(c.code)) {
         return `<span class="chip collected" title="${title} — bereits gesammelt">✓ ${c.code}</span>`;
