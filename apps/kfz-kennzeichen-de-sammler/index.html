@@ -94,6 +94,13 @@
   .error-msg { color: var(--red); font-size: 0.8rem; margin-top: 8px; display: none; }
   .error-msg.show { display: block; }
 
+  .code-hint { font-size: 0.8rem; color: var(--muted); margin-top: 8px; display: none; }
+  .code-hint.show { display: block; }
+  .code-hint strong { color: var(--accent); font-weight: 600; }
+  .code-hint.is-collected strong { color: var(--green); }
+  .code-hint.is-collected { color: var(--green); }
+  .code-hint.is-unknown { color: var(--red); }
+
   .chips-row { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 10px; align-items: center; }
   .chips-label { font-size: 0.7rem; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; margin-right: 2px; }
   .chip {
@@ -104,6 +111,11 @@
   .chip:hover { background: rgba(245,197,24,0.12); border-color: var(--accent); }
   .chip-more { color: var(--muted); cursor: default; }
   .chip-more:hover { background: var(--surface2); border-color: var(--border); }
+  .chip.collected {
+    background: rgba(74,222,128,0.06); border-color: rgba(74,222,128,0.3); color: var(--green);
+    cursor: default; opacity: 0.8;
+  }
+  .chip.collected:hover { background: rgba(74,222,128,0.06); border-color: rgba(74,222,128,0.3); }
 
   .code-suggestions { position: absolute; top: 100%; left: 0; right: 0; margin-top: 4px; background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; max-height: 180px; overflow-y: auto; display: none; z-index: 10; box-shadow: 0 12px 32px rgba(0,0,0,0.4); }
   .code-suggestions.show { display: block; }
@@ -285,6 +297,7 @@
       <button class="btn-add-inline" id="btnAdd" onclick="addEntry()">+ Hinzufügen</button>
     </div>
     <div class="error-msg" id="errorMsg"></div>
+    <div class="code-hint" id="codeHint"></div>
     <div class="chips-row" id="chipsRow"></div>
   </div>
 </div>
@@ -404,7 +417,6 @@
   const CODES_CACHE_KEY = 'kfz_codes_cache_v1';
   const TAB_KEY = 'kfz_active_tab_v1';
   const SAMMLUNG_VIEW_KEY = 'kfz_sammlung_view_v1';
-  const CHIPS_LIMIT = 8;
   let isSyncing = false;
 
   const ACHIEVEMENTS = [
@@ -532,7 +544,7 @@
 
     document.getElementById('loadingScreen').classList.add('hidden');
     document.getElementById('inputCode').addEventListener('keydown', e => { if(e.key==='Enter') addEntry(); });
-    document.getElementById('inputCode').addEventListener('input', updateSuggestions);
+    document.getElementById('inputCode').addEventListener('input', () => { updateSuggestions(); updateCodeHint(); });
     document.addEventListener('click', e => {
       if (e.target.id !== 'inputCode' && !e.target.closest('.code-suggestions')) {
         document.getElementById('codeSuggestions').classList.remove('show');
@@ -724,6 +736,7 @@
 
       document.getElementById('inputCode').value = '';
       document.getElementById('codeSuggestions').classList.remove('show');
+      updateCodeHint();
       showToast('📡 Offline gespeichert — wird synchronisiert, sobald du wieder online bist', true);
       return;
     }
@@ -739,6 +752,7 @@
     renderAll();
     document.getElementById('inputCode').value = '';
     document.getElementById('codeSuggestions').classList.remove('show');
+    updateCodeHint();
     document.getElementById('inputCode').focus();
     const codeData = allCodes.find(c => c.code === code);
     const nameLabel = codeData ? `${codeData.name} (${codeData.bundesland})` : '';
@@ -826,6 +840,32 @@
     document.getElementById('inputCode').value = code;
     document.getElementById('codeSuggestions').classList.remove('show');
     document.getElementById('inputCode').focus();
+    updateCodeHint();
+  }
+
+  // ── Live-Hinweis: zeigt beim Tippen an, für welches Kennzeichen der Code steht ──
+  function updateCodeHint() {
+    const hintEl = document.getElementById('codeHint');
+    const query = document.getElementById('inputCode').value.trim().toUpperCase();
+    hintEl.classList.remove('is-collected', 'is-unknown');
+
+    if (!query) { hintEl.classList.remove('show'); return; }
+
+    const codeData = allCodes.find(c => c.code === query);
+    if (!codeData) {
+      hintEl.textContent = query + ' ist kein bekanntes Kennzeichen.';
+      hintEl.classList.add('show', 'is-unknown');
+      return;
+    }
+
+    const alreadyCollected = entries.some(e => e.code === query);
+    if (alreadyCollected) {
+      hintEl.innerHTML = `<strong>${codeData.code}</strong> — ${codeData.name} (${codeData.bundesland}) · ✓ bereits gesammelt`;
+      hintEl.classList.add('show', 'is-collected');
+    } else {
+      hintEl.innerHTML = `<strong>${codeData.code}</strong> — ${codeData.name} (${codeData.bundesland})`;
+      hintEl.classList.add('show');
+    }
   }
 
   // ── Schnellauswahl-Chips: noch fehlende Codes ───────────────
@@ -833,19 +873,16 @@
     const el = document.getElementById('chipsRow');
     if (!allCodes.length) { el.innerHTML = ''; return; }
     const have = new Set(entries.map(e => e.code));
-    const missing = allCodes.filter(c => !have.has(c.code));
+    const allCollected = allCodes.every(c => have.has(c.code));
 
-    if (!missing.length) {
-      el.innerHTML = '<span class="chips-label">🎉 Alle Codes gesammelt!</span>';
-      return;
-    }
-
-    const shown = missing.slice(0, CHIPS_LIMIT);
-    const rest = missing.length - shown.length;
-
-    let html = '<span class="chips-label">Noch offen:</span>';
-    html += shown.map(c => `<button class="chip" onclick="quickAdd('${c.code}')" title="${c.name} (${c.bundesland})">${c.code}</button>`).join('');
-    if (rest > 0) html += `<span class="chip chip-more">+ ${rest} weitere</span>`;
+    let html = `<span class="chips-label">${allCollected ? '🎉 Alle Codes gesammelt!' : 'Alle Kennzeichen:'}</span>`;
+    html += allCodes.map(c => {
+      const title = `${c.name} (${c.bundesland})`;
+      if (have.has(c.code)) {
+        return `<span class="chip collected" title="${title} — bereits gesammelt">✓ ${c.code}</span>`;
+      }
+      return `<button class="chip" onclick="quickAdd('${c.code}')" title="${title}">${c.code}</button>`;
+    }).join('');
     el.innerHTML = html;
   }
 
@@ -1074,6 +1111,7 @@
     renderList();
     renderChips();
     renderMap();
+    updateCodeHint();
   }
 
   function showToast(msg, offlineStyle = false, duration = 10000) {
