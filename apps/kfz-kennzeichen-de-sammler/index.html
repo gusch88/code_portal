@@ -182,22 +182,38 @@
   .search-input { flex: 1; min-width: 160px; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; color: var(--text); padding: 8px 13px; font-family: 'DM Mono', monospace; font-size: 0.88rem; outline: none; transition: border-color 0.2s; }
   .search-input:focus { border-color: var(--accent); }
 
-  .view-toggle { display: flex; gap: 3px; background: var(--surface2); border: 1px solid var(--border); border-radius: 9px; padding: 3px; }
-  .view-toggle-btn { background: none; border: none; color: var(--muted); padding: 6px 13px; border-radius: 7px; font-size: 0.78rem; font-weight: 600; cursor: pointer; font-family: 'DM Sans', sans-serif; transition: all 0.15s; white-space: nowrap; }
-  .view-toggle-btn.active { background: var(--accent); color: #000; }
-
-  .list-header { font-family: 'Bebas Neue', sans-serif; font-size: 1.05rem; letter-spacing: 2px; color: var(--muted); margin-bottom: 14px; display: flex; align-items: center; justify-content: space-between; }
   .empty-state { text-align: center; padding: 44px 20px; color: var(--muted); }
   .empty-icon { font-size: 2.8rem; margin-bottom: 10px; opacity: 0.35; }
 
-  /* ── Gruppierte Kennzeichen-Grid-Ansicht ── */
-  .group-section { margin-bottom: 24px; }
-  .group-header { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 11px; padding-bottom: 7px; border-bottom: 1px solid var(--border); }
-  .group-title { font-family: 'Bebas Neue', sans-serif; font-size: 1.05rem; letter-spacing: 1.5px; color: var(--text); }
-  .group-count { font-family: 'DM Mono', monospace; font-size: 0.76rem; color: var(--muted); }
-  .plate-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); gap: 12px; }
+  /* ── Sammelalbum: Cover / Gesamtfortschritt ── */
+  .album-cover { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 20px 22px; margin-bottom: 20px; }
+  .album-cover-head { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 14px; flex-wrap: wrap; gap: 8px; }
+  .album-cover-stat { font-family: 'Bebas Neue', sans-serif; font-size: 1.3rem; letter-spacing: 1px; color: var(--accent); }
+  .album-progress-bar { background: var(--surface2); border: 1px solid var(--border); border-radius: 999px; height: 14px; overflow: hidden; }
+  .album-progress-fill { height: 100%; background: linear-gradient(90deg, var(--accent), var(--accent2)); border-radius: 999px; transition: width 0.5s ease; }
+  .album-cover-meta { margin-top: 10px; font-size: 0.8rem; color: var(--muted); }
+
+  /* ── Kapitel (Bundesland-Accordion) ── */
+  .chapter { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; margin-bottom: 10px; overflow: hidden; }
+  .chapter-header { display: flex; align-items: center; gap: 14px; padding: 14px 16px; cursor: pointer; user-select: none; }
+  .chapter-header:hover { background: rgba(245,197,24,0.04); }
+  .chapter-title-wrap { flex: 1; min-width: 0; }
+  .chapter-title { font-family: 'Bebas Neue', sans-serif; font-size: 1.05rem; letter-spacing: 1.5px; color: var(--text); }
+  .chapter-fraction { font-size: 0.78rem; color: var(--muted); margin-top: 2px; font-family: 'DM Mono', monospace; }
+  .chapter-fraction strong { color: var(--accent); font-weight: 600; }
+  .chapter-chevron { color: var(--muted); flex-shrink: 0; transition: transform 0.25s ease; }
+  .chapter.expanded .chapter-chevron { transform: rotate(180deg); }
+  .chapter-body { max-height: 0; overflow: hidden; opacity: 0; padding: 0 16px; transition: max-height 0.3s ease, opacity 0.25s ease; }
+  .chapter.expanded .chapter-body { opacity: 1; padding: 0 16px 16px; }
+
+  .chapter-donut { position: relative; flex-shrink: 0; }
+  .chapter-donut svg circle:last-child { transition: stroke-dashoffset 0.4s ease; }
+  .chapter-donut-label { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-family: 'DM Mono', monospace; font-size: 0.6rem; font-weight: 600; color: var(--text); }
+
+  /* ── Sticker-Slots ── */
+  .sticker-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(88px, 1fr)); gap: 12px; }
   .plate-card {
-    position: relative; background: var(--surface); border: 1px solid var(--border); border-radius: 11px;
+    position: relative; background: var(--surface2); border: 1px solid var(--border); border-radius: 11px;
     padding: 13px 10px 11px; text-align: center; cursor: pointer;
     transition: border-color 0.15s, transform 0.12s; animation: slideIn 0.22s ease;
   }
@@ -218,6 +234,16 @@
   .plate-card:hover .plate-card-delete { opacity: 1; }
   .plate-card-delete:hover { color: var(--red); border-color: var(--red); }
   @media (max-width: 480px) { .plate-card-delete { opacity: 1; } }
+
+  .plate-card.empty {
+    background: transparent; border-style: dashed; border-color: var(--border); cursor: default;
+  }
+  .plate-card.empty:hover { border-color: var(--border); transform: none; }
+  .plate-card.empty .plate-card-name { opacity: 0.5; }
+  .sticker-slot-empty {
+    font-family: 'DM Mono', monospace; font-size: 0.95rem; font-weight: 700; letter-spacing: 0.5px;
+    color: var(--muted); opacity: 0.5; padding: 5px 0 3px;
+  }
 
   /* ── Übersicht: zuletzt erfasst ── */
   .recent-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
@@ -335,20 +361,23 @@
     </div>
   </div>
 
-  <!-- ═══ TAB: Sammlung ═══ -->
+  <!-- ═══ TAB: Sammlung (Sammelalbum) ═══ -->
   <div class="tab-panel" id="panel-sammlung">
-    <div class="toolbar">
-      <input type="text" class="search-input" id="searchInput" placeholder="🔍 Suchen…" oninput="renderList()">
-      <div class="view-toggle">
-        <button class="view-toggle-btn active" data-view="bundesland" onclick="setSammlungView('bundesland')">Nach Bundesland</button>
-        <button class="view-toggle-btn" data-view="zeit" onclick="setSammlungView('zeit')">Chronologisch</button>
+    <div class="album-cover">
+      <div class="album-cover-head">
+        <div class="section-title" style="margin-bottom:0">Sammelalbum</div>
+        <div class="album-cover-stat" id="albumCoverStat">0 / 0 Kennzeichen</div>
       </div>
+      <div class="album-progress-bar"><div class="album-progress-fill" id="albumProgressFill" style="width:0%"></div></div>
+      <div class="album-cover-meta" id="albumCoverMeta"></div>
     </div>
-    <div class="list-header">
-      <span>Gesammelte Kennzeichen</span>
-      <span id="listCount" style="font-size:0.82rem;color:var(--muted)"></span>
+
+    <div class="toolbar">
+      <input type="text" class="search-input" id="searchInput" placeholder="🔍 Suchen…" oninput="renderSammlungAlbum()">
+      <button class="link-btn" id="toggleAllChaptersBtn" onclick="toggleAllChapters()">Alle aufklappen</button>
     </div>
-    <div id="entriesGrid"></div>
+
+    <div id="albumChapters"></div>
   </div>
 
   <!-- ═══ TAB: Karte ═══ -->
@@ -421,17 +450,17 @@
   let currentUser = null;
   let pendingDeleteId = null;
   let editingEntryId = null;
-  let sammlungView = 'bundesland';
   let allCodes = [];
   let kreiseGeoJSON = null;
   let map = null, geoLayer = null, mapRenderer = null;
   let currentTab = 'uebersicht';
+  let expandedChapters = new Set();
+  let chaptersInitialized = false;
 
   const QUEUE_KEY = 'kfz_offline_queue_v1';
   const ENTRIES_CACHE_KEY = 'kfz_entries_cache_v1';
   const CODES_CACHE_KEY = 'kfz_codes_cache_v1';
   const TAB_KEY = 'kfz_active_tab_v1';
-  const SAMMLUNG_VIEW_KEY = 'kfz_sammlung_view_v1';
   const CHIPS_RANDOM_COUNT = 10;
   const ERROR_MSG_DURATION = 10000;
   let isSyncing = false;
@@ -566,9 +595,6 @@
     await loadCodes();
     await loadEntries();
     await loadMapData();
-
-    sammlungView = localStorage.getItem(SAMMLUNG_VIEW_KEY) || 'bundesland';
-    document.querySelectorAll('.view-toggle-btn').forEach(b => b.classList.toggle('active', b.dataset.view === sammlungView));
 
     const savedTab = localStorage.getItem(TAB_KEY) || 'uebersicht';
     setTab(savedTab);
@@ -1012,65 +1038,178 @@
     });
   }
 
-  function setSammlungView(view) {
-    sammlungView = view;
-    localStorage.setItem(SAMMLUNG_VIEW_KEY, view);
-    document.querySelectorAll('.view-toggle-btn').forEach(b => b.classList.toggle('active', b.dataset.view === view));
-    renderList();
-  }
-
-  function getFiltered() {
-    const q = document.getElementById('searchInput').value.toLowerCase();
-    if (!q) return entries;
-    return entries.filter(e => {
-      const codeData = allCodes.find(c => c.code === e.code);
-      const name = codeData ? codeData.name.toLowerCase() : '';
-      const bundesland = codeData ? codeData.bundesland.toLowerCase() : '';
-      return e.code.toLowerCase().includes(q) || name.includes(q) || bundesland.includes(q);
+  // ── Sammelalbum: Kapitel je Bundesland ──────────────────────
+  function getBundeslandChapters() {
+    const map = new Map();
+    allCodes.forEach(c => {
+      if (!map.has(c.bundesland)) map.set(c.bundesland, []);
+      map.get(c.bundesland).push(c);
     });
+    return Array.from(map.entries())
+      .map(([bundesland, codes]) => ({ bundesland, codes: codes.slice().sort((a, b) => a.code.localeCompare(b.code, 'de')) }))
+      .sort((a, b) => a.bundesland.localeCompare(b.bundesland, 'de'));
   }
 
-  function groupByBundesland(list) {
-    const groups = {};
-    list.forEach(e => {
-      const codeData = allCodes.find(c => c.code === e.code);
-      const key = codeData ? codeData.bundesland : 'Unbekannt';
-      (groups[key] = groups[key] || []).push(e);
+  function initExpandedChapters(chapters, have) {
+    if (chaptersInitialized || !chapters.length) return;
+    chaptersInitialized = true;
+    let best = chapters[0];
+    let bestPct = -1;
+    chapters.forEach(ch => {
+      const count = ch.codes.filter(c => have.has(c.code)).length;
+      const pct = ch.codes.length ? count / ch.codes.length : 0;
+      if (pct > bestPct) { bestPct = pct; best = ch; }
     });
-    return groups;
+    expandedChapters.add(best.bundesland);
   }
 
-  function groupByTime(list) {
-    const groups = { 'Heute': [], 'Gestern': [], 'Diese Woche': [], 'Älter': [] };
-    const now = new Date();
-    const todayStr = now.toDateString();
-    const yesterday = new Date(now); yesterday.setDate(now.getDate() - 1);
-    const yesterdayStr = yesterday.toDateString();
-    list.forEach(e => {
-      const d = new Date(e.created_at);
-      const diffDays = (now - d) / 86400000;
-      if (d.toDateString() === todayStr) groups['Heute'].push(e);
-      else if (d.toDateString() === yesterdayStr) groups['Gestern'].push(e);
-      else if (diffDays <= 7) groups['Diese Woche'].push(e);
-      else groups['Älter'].push(e);
-    });
-    Object.keys(groups).forEach(k => { if (!groups[k].length) delete groups[k]; });
-    return groups;
+  function renderDonut(pct, size = 40) {
+    const stroke = 4;
+    const radius = (size - stroke) / 2;
+    const circumference = 2 * Math.PI * radius;
+    const offset = circumference * (1 - pct / 100);
+    return `<div class="chapter-donut" style="width:${size}px;height:${size}px;">
+      <svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">
+        <circle cx="${size / 2}" cy="${size / 2}" r="${radius}" fill="none" stroke="var(--border)" stroke-width="${stroke}" />
+        <circle cx="${size / 2}" cy="${size / 2}" r="${radius}" fill="none" stroke="var(--accent)" stroke-width="${stroke}"
+          stroke-linecap="round" stroke-dasharray="${circumference}" stroke-dashoffset="${offset}"
+          transform="rotate(-90 ${size / 2} ${size / 2})" />
+      </svg>
+      <span class="chapter-donut-label">${pct}%</span>
+    </div>`;
   }
 
-  function renderPlateCard(e) {
-    const codeData = allCodes.find(c => c.code === e.code);
-    const name = codeData ? codeData.name : '';
-    const pendingBadge = e._pending ? '<div class="plate-card-pending">⏳ wartet</div>' : '';
-    return `<div class="plate-card ${e._pending ? 'pending' : ''}" onclick="openEditModal('${e.id}')" title="${name}">
-      <button class="plate-card-delete" onclick="event.stopPropagation(); requestDeleteEntry('${e.id}')" aria-label="Löschen">✕</button>
+  function renderStickerSlot(codeData, entry) {
+    const title = `${codeData.name} (${codeData.bundesland})`;
+    if (!entry) {
+      return `<div class="plate-card empty" title="${title} — noch nicht gesammelt">
+        <div class="sticker-slot-empty">${codeData.code}</div>
+        <div class="plate-card-name">${codeData.name}</div>
+      </div>`;
+    }
+    const pendingBadge = entry._pending ? '<div class="plate-card-pending">⏳ wartet</div>' : '';
+    return `<div class="plate-card ${entry._pending ? 'pending' : ''}" onclick="openEditModal('${entry.id}')" title="${title}">
+      <button class="plate-card-delete" onclick="event.stopPropagation(); requestDeleteEntry('${entry.id}')" aria-label="Löschen">✕</button>
       <div class="mini-plate">
         <div class="mini-plate-strip">D</div>
-        <span class="mini-plate-code">${e.code}</span>
+        <span class="mini-plate-code">${codeData.code}</span>
       </div>
-      <div class="plate-card-name">${name}</div>
+      <div class="plate-card-name">${codeData.name}</div>
       ${pendingBadge}
     </div>`;
+  }
+
+  function updateToggleAllLabel() {
+    const btn = document.getElementById('toggleAllChaptersBtn');
+    if (!btn) return;
+    const chapters = getBundeslandChapters();
+    const allExpanded = chapters.length > 0 && chapters.every(ch => expandedChapters.has(ch.bundesland));
+    btn.textContent = allExpanded ? 'Alle zuklappen' : 'Alle aufklappen';
+  }
+
+  function toggleChapter(idx) {
+    const chapters = getBundeslandChapters();
+    const chapter = chapters[idx];
+    if (!chapter) return;
+    const bundesland = chapter.bundesland;
+    const chapterEl = document.querySelector(`.chapter[data-idx="${idx}"]`);
+    if (!chapterEl) return;
+    const body = chapterEl.querySelector('.chapter-body');
+    const isExpanded = expandedChapters.has(bundesland);
+
+    if (isExpanded) {
+      body.style.maxHeight = body.scrollHeight + 'px';
+      requestAnimationFrame(() => {
+        chapterEl.classList.remove('expanded');
+        body.style.maxHeight = '0px';
+      });
+      expandedChapters.delete(bundesland);
+    } else {
+      chapterEl.classList.add('expanded');
+      body.style.maxHeight = '0px';
+      requestAnimationFrame(() => {
+        body.style.maxHeight = body.scrollHeight + 'px';
+      });
+      expandedChapters.add(bundesland);
+      body.addEventListener('transitionend', function handler(e) {
+        if (e.propertyName === 'max-height' && expandedChapters.has(bundesland)) {
+          body.style.maxHeight = 'none';
+        }
+        body.removeEventListener('transitionend', handler);
+      });
+    }
+    updateToggleAllLabel();
+  }
+
+  function toggleAllChapters() {
+    const chapters = getBundeslandChapters();
+    const shouldExpand = !(chapters.length > 0 && chapters.every(ch => expandedChapters.has(ch.bundesland)));
+    chapters.forEach((ch, idx) => {
+      const isExpanded = expandedChapters.has(ch.bundesland);
+      if (shouldExpand && !isExpanded) toggleChapter(idx);
+      if (!shouldExpand && isExpanded) toggleChapter(idx);
+    });
+  }
+
+  function renderSammlungAlbum() {
+    const have = new Set(entries.map(e => e.code));
+    const entryByCode = new Map(entries.map(e => [e.code, e]));
+    const chapters = getBundeslandChapters();
+    initExpandedChapters(chapters, have);
+
+    const totalCodes = allCodes.length;
+    const pctTotal = totalCodes ? Math.round((have.size / totalCodes) * 100) : 0;
+    const totalStates = chapters.length;
+    const startedStates = chapters.filter(ch => ch.codes.some(c => have.has(c.code))).length;
+
+    document.getElementById('albumCoverStat').textContent = `${have.size} / ${totalCodes} Kennzeichen`;
+    document.getElementById('albumProgressFill').style.width = pctTotal + '%';
+    document.getElementById('albumCoverMeta').textContent = totalStates
+      ? `${pctTotal}% vollständig · ${startedStates}/${totalStates} Länder begonnen`
+      : '';
+    updateToggleAllLabel();
+
+    const chaptersEl = document.getElementById('albumChapters');
+    if (!chapters.length) {
+      chaptersEl.innerHTML = '<div class="empty-state"><div class="empty-icon">📖</div><p>Noch keine Kennzeichen-Daten geladen</p></div>';
+      return;
+    }
+
+    const query = document.getElementById('searchInput').value.trim().toLowerCase();
+
+    const html = chapters.map((chapter, idx) => {
+      let codes = chapter.codes;
+      const bundeslandMatches = chapter.bundesland.toLowerCase().includes(query);
+      if (query && !bundeslandMatches) {
+        codes = codes.filter(c => c.code.toLowerCase().includes(query) || c.name.toLowerCase().includes(query));
+        if (!codes.length) return '';
+      }
+
+      const collectedCount = chapter.codes.filter(c => have.has(c.code)).length;
+      const total = chapter.codes.length;
+      const pct = total ? Math.round((collectedCount / total) * 100) : 0;
+      const isExpanded = query ? true : expandedChapters.has(chapter.bundesland);
+
+      return `<div class="chapter ${isExpanded ? 'expanded' : ''}" data-idx="${idx}">
+        <div class="chapter-header" onclick="toggleChapter(${idx})">
+          ${renderDonut(pct)}
+          <div class="chapter-title-wrap">
+            <div class="chapter-title">${chapter.bundesland}</div>
+            <div class="chapter-fraction"><strong>${collectedCount}</strong>/${total} Kennzeichen</div>
+          </div>
+          <svg class="chapter-chevron" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+        </div>
+        <div class="chapter-body">
+          <div class="sticker-grid">${codes.map(c => renderStickerSlot(c, entryByCode.get(c.code))).join('')}</div>
+        </div>
+      </div>`;
+    }).join('');
+
+    chaptersEl.innerHTML = html || '<div class="empty-state"><div class="empty-icon">🔍</div><p>Keine Treffer</p></div>';
+
+    chaptersEl.querySelectorAll('.chapter.expanded .chapter-body').forEach(body => {
+      body.style.maxHeight = body.scrollHeight + 'px';
+    });
   }
 
   function renderStats() {
@@ -1149,45 +1288,12 @@
     }).join('');
   }
 
-  function renderList() {
-    const grid = document.getElementById('entriesGrid');
-    const filtered = getFiltered();
-    document.getElementById('listCount').textContent = filtered.length + ' Einträge';
-    if (!filtered.length) { grid.innerHTML = '<div class="empty-state"><div class="empty-icon">🚗</div><p>Nichts hier</p></div>'; return; }
-
-    const groups = sammlungView === 'zeit' ? groupByTime(filtered) : groupByBundesland(filtered);
-
-    let orderedKeys = Object.keys(groups);
-    if (sammlungView === 'zeit') {
-      const order = ['Heute', 'Gestern', 'Diese Woche', 'Älter'];
-      orderedKeys = order.filter(k => orderedKeys.includes(k));
-    } else {
-      orderedKeys = orderedKeys.sort((a, b) => a === 'Unbekannt' ? 1 : b === 'Unbekannt' ? -1 : a.localeCompare(b, 'de'));
-    }
-
-    grid.innerHTML = orderedKeys.map(key => {
-      const groupEntries = groups[key];
-      let countLabel = groupEntries.length;
-      if (sammlungView === 'bundesland') {
-        const totalFor = allCodes.filter(c => c.bundesland === key).length;
-        if (totalFor) countLabel = `${groupEntries.length}/${totalFor}`;
-      }
-      return `<div class="group-section">
-        <div class="group-header">
-          <span class="group-title">${key}</span>
-          <span class="group-count">${countLabel}</span>
-        </div>
-        <div class="plate-grid">${groupEntries.map(renderPlateCard).join('')}</div>
-      </div>`;
-    }).join('');
-  }
-
   function renderAll() {
     renderStats();
     renderRecentPreview();
     renderAchievements();
     renderCodeRanking();
-    renderList();
+    renderSammlungAlbum();
     renderChips();
     renderMap();
     updateCodeHint();
