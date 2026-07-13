@@ -1053,14 +1053,6 @@
   function initExpandedChapters(chapters, have) {
     if (chaptersInitialized || !chapters.length) return;
     chaptersInitialized = true;
-    let best = chapters[0];
-    let bestPct = -1;
-    chapters.forEach(ch => {
-      const count = ch.codes.filter(c => have.has(c.code)).length;
-      const pct = ch.codes.length ? count / ch.codes.length : 0;
-      if (pct > bestPct) { bestPct = pct; best = ch; }
-    });
-    expandedChapters.add(best.bundesland);
   }
 
   function renderDonut(pct, size = 40) {
