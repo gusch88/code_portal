@@ -1,0 +1,89 @@
+# Supabase Setup für Zeiterfassung
+
+## 1. Tabellen anlegen
+
+Dieses SQL im **Supabase SQL Editor** ausführen (gleiches Projekt wie Portal und die anderen Apps):
+
+```sql
+-- ============================================================
+-- Zeiterfassung – Supabase Setup
+-- ============================================================
+
+-- 1. Arbeits-Sessions
+create table if not exists time_sessions (
+  id          bigint generated always as identity primary key,
+  user_id     uuid references auth.users(id) on delete cascade not null,
+  work_date   date not null,
+  start_time  timestamptz not null,
+  end_time    timestamptz,
+  note        text default '',
+  created_at  timestamptz default now()
+);
+
+create index if not exists idx_sessions_user_date on time_sessions(user_id, work_date);
+
+-- Optional (empfohlen): verhindert zwei parallel laufende Sessions je Nutzer
+create unique index if not exists uniq_running_session_per_user
+  on time_sessions(user_id) where end_time is null;
+
+-- 2. Pausen (an eine Session gebunden)
+create table if not exists time_pauses (
+  id          bigint generated always as identity primary key,
+  user_id     uuid references auth.users(id) on delete cascade not null,
+  session_id  bigint references time_sessions(id) on delete cascade not null,
+  start_time  timestamptz not null,
+  end_time    timestamptz,
+  note        text default '',
+  created_at  timestamptz default now()
+);
+
+create index if not exists idx_pauses_user_session on time_pauses(user_id, session_id);
+
+-- 3. Einstellungen pro Nutzer (wöchentliche Soll-Stunden)
+create table if not exists time_settings (
+  user_id              uuid references auth.users(id) on delete cascade primary key,
+  weekly_target_hours  numeric(5,2) not null default 40,
+  updated_at           timestamptz default now()
+);
+
+-- 4. Row Level Security aktivieren
+alter table time_sessions enable row level security;
+alter table time_pauses   enable row level security;
+alter table time_settings enable row level security;
+
+create policy "Users können eigene Sessions sehen"
+  on time_sessions for select using (auth.uid() = user_id);
+create policy "Users können eigene Sessions anlegen"
+  on time_sessions for insert with check (auth.uid() = user_id);
+create policy "Users können eigene Sessions bearbeiten"
+  on time_sessions for update using (auth.uid() = user_id);
+create policy "Users können eigene Sessions löschen"
+  on time_sessions for delete using (auth.uid() = user_id);
+
+create policy "Users können eigene Pausen sehen"
+  on time_pauses for select using (auth.uid() = user_id);
+create policy "Users können eigene Pausen anlegen"
+  on time_pauses for insert with check (auth.uid() = user_id);
+create policy "Users können eigene Pausen bearbeiten"
+  on time_pauses for update using (auth.uid() = user_id);
+create policy "Users können eigene Pausen löschen"
+  on time_pauses for delete using (auth.uid() = user_id);
+
+create policy "Users können eigene Settings sehen"
+  on time_settings for select using (auth.uid() = user_id);
+create policy "Users können eigene Settings anlegen"
+  on time_settings for insert with check (auth.uid() = user_id);
+create policy "Users können eigene Settings bearbeiten"
+  on time_settings for update using (auth.uid() = user_id);
+```
+
+## 2. App verwenden
+
+Kein separates Sync-Skript nötig — alle Daten werden direkt über die App-Oberfläche erfasst (Timer, manuelle Einträge). Die wöchentliche Soll-Stundenzahl ist standardmäßig **40h** und kann im Tab „Einstellungen“ jederzeit angepasst werden.
+
+## Bekannte Einschränkungen (v1)
+
+- **Kein Offline-Modus.** Die App braucht eine aktive Verbindung zu Supabase; anders als die KFZ-Kennzeichen-App gibt es keine Offline-Warteschlange.
+- **Sessions über Mitternacht** zählen komplett auf den Kalendertag, an dem sie gestartet wurden — keine Aufteilung auf zwei Tage.
+- **Rückwirkende Soll-Änderung:** Wird die wöchentliche Soll-Stundenzahl geändert, wirkt sich das auf alle historischen Tage aus (kein Snapshot pro Tag). Für ein persönliches Tool ist das beabsichtigt.
+- **Automatischer Start per Standort** (Geofencing) ist nicht implementiert — mögliche Ausbaustufe für später.

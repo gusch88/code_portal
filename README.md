@@ -100,19 +100,21 @@ In Supabase unter **Authentication → URL Configuration**:
 
 ## Neue App hinzufügen
 
-1. Neuen Ordner unter `apps/` anlegen (z.B. `apps/zeittrack/`)
+1. Neuen Ordner unter `apps/` anlegen (z.B. `apps/meine-app/`)
 2. `index.html` der neuen App dort ablegen
 3. In `index.html` (Portal) eine neue Karte im App-Grid ergänzen:
 
 ```html
-<a class="app-card" href="apps/zeittrack/index.html">
+<a class="app-card" href="apps/meine-app/index.html">
   <div class="app-card-thumb" style="background: linear-gradient(135deg, #0f1520 0%, #151e2e 100%);">⏱️</div>
   <div class="app-card-body">
-    <div class="app-card-name">ZeitTrack</div>
+    <div class="app-card-name">Meine App</div>
     <div class="app-card-desc">Deine Beschreibung hier.</div>
-    <div class="app-card-tag">Zeiterfassung</div>
+    <div class="app-card-tag">Kategorie</div>
   </div>
 </a>
 ```
+
+Beispiel: `apps/zeiterfassung/` (siehe eigene `SETUP.md` in diesem Ordner für das Datenbank-Setup).
 
 4. Git commit + push → Netlify deployt automatisch
