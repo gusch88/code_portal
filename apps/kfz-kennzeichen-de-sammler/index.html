@@ -121,6 +121,7 @@
   .code-suggestions.show { display: block; }
   .code-suggestion-item { padding: 10px 13px; cursor: pointer; font-family: 'Bebas Neue', sans-serif; font-size: 0.95rem; letter-spacing: 1px; color: var(--text); transition: background 0.1s; border-bottom: 1px solid rgba(42,45,56,0.5); }
   .code-suggestion-item:hover { background: rgba(245,197,24,0.1); color: var(--accent); }
+  .code-suggestion-name { font-family: 'DM Sans', sans-serif; font-size: 0.78rem; letter-spacing: normal; color: var(--muted); margin-left: 4px; }
   .code-suggestion-item:last-child { border-bottom: none; }
 
   /* ── Tabs ── */
@@ -914,8 +915,8 @@
       return;
     }
 
-    suggestionsEl.innerHTML = suggestions.map(c => 
-      `<div class="code-suggestion-item" onclick="selectSuggestion('${c.code}')">${c.code}</div>`
+    suggestionsEl.innerHTML = suggestions.map(c =>
+      `<div class="code-suggestion-item" onclick="selectSuggestion('${c.code}')">${c.code} <span class="code-suggestion-name">${c.name}</span></div>`
     ).join('');
     suggestionsEl.classList.add('show');
   }
