@@ -46,10 +46,24 @@ create table if not exists time_settings (
   updated_at           timestamptz default now()
 );
 
--- 4. Row Level Security aktivieren
+-- 4. Abwesenheiten (Krank / Urlaub) — zählen nicht als Arbeitstag
+create table if not exists time_absences (
+  id          bigint generated always as identity primary key,
+  user_id     uuid references auth.users(id) on delete cascade not null,
+  date        date not null,
+  type        text not null check (type in ('krank', 'urlaub')),
+  note        text default '',
+  created_at  timestamptz default now(),
+  unique(user_id, date)
+);
+
+create index if not exists idx_absences_user_date on time_absences(user_id, date);
+
+-- 5. Row Level Security aktivieren
 alter table time_sessions enable row level security;
 alter table time_pauses   enable row level security;
 alter table time_settings enable row level security;
+alter table time_absences enable row level security;
 
 create policy "Users können eigene Sessions sehen"
   on time_sessions for select using (auth.uid() = user_id);
@@ -75,11 +89,22 @@ create policy "Users können eigene Settings anlegen"
   on time_settings for insert with check (auth.uid() = user_id);
 create policy "Users können eigene Settings bearbeiten"
   on time_settings for update using (auth.uid() = user_id);
+
+create policy "Users können eigene Abwesenheiten sehen"
+  on time_absences for select using (auth.uid() = user_id);
+create policy "Users können eigene Abwesenheiten anlegen"
+  on time_absences for insert with check (auth.uid() = user_id);
+create policy "Users können eigene Abwesenheiten bearbeiten"
+  on time_absences for update using (auth.uid() = user_id);
+create policy "Users können eigene Abwesenheiten löschen"
+  on time_absences for delete using (auth.uid() = user_id);
 ```
 
 ## 2. App verwenden
 
 Kein separates Sync-Skript nötig — alle Daten werden direkt über die App-Oberfläche erfasst (Timer, manuelle Einträge). Die wöchentliche Soll-Stundenzahl ist standardmäßig **40h** und kann im Tab „Einstellungen“ jederzeit angepasst werden.
+
+In der Tagesansicht (Übersicht → Tag) kann ein Tag als **Krank** oder **Urlaub** markiert werden. Für solche Tage wird die Soll-Zeit auf 0 gesetzt — sie zählen also nicht als Arbeitstag und erzeugen keine negative Differenz im Überstundenkonto.
 
 ## Bekannte Einschränkungen (v1)
 

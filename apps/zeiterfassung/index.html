@@ -109,6 +109,9 @@
   .positive { color: var(--green); }
   .negative { color: var(--red); }
 
+  .absence-row { display: flex; align-items: center; gap: 12px; justify-content: center; margin-bottom: 22px; flex-wrap: wrap; }
+  .absence-label { font-size: 0.78rem; color: var(--muted); }
+
   /* ── Woche ── */
   .week-table { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; margin-bottom: 24px; }
   .week-row { display: grid; grid-template-columns: 1.3fr 1fr 1fr 1fr; gap: 8px; padding: 11px 14px; border-bottom: 1px solid var(--border); cursor: pointer; font-size: 0.83rem; align-items: center; transition: background 0.1s; }
@@ -132,6 +135,8 @@
   .cal-neg { background: rgba(239,68,68,0.07); border-color: rgba(239,68,68,0.28); }
   .cal-neg .cal-hours { color: var(--red); }
   .cal-neutral .cal-hours { color: var(--muted); }
+  .cal-absence { background: rgba(245,197,24,0.06); border-color: rgba(245,197,24,0.25); }
+  .cal-absence .cal-hours { color: var(--accent); font-size: 0.9rem; }
 
   /* ── Einstellungen ── */
   .settings-field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 18px; max-width: 260px; }
@@ -242,6 +247,14 @@
         <button onclick="stepDay(1)">▶</button>
       </div>
       <div style="text-align:center;margin-bottom:20px;"><button class="btn-small" onclick="goToday()">Heute</button></div>
+      <div class="absence-row">
+        <span class="absence-label">Abwesenheit:</span>
+        <div class="mode-toggle" id="absenceToggle">
+          <button type="button" data-atype="none" onclick="setAbsence('none')">Keine</button>
+          <button type="button" data-atype="krank" onclick="setAbsence('krank')">🤒 Krank</button>
+          <button type="button" data-atype="urlaub" onclick="setAbsence('urlaub')">🌴 Urlaub</button>
+        </div>
+      </div>
       <div class="summary-strip">
         <div class="summary-card"><div class="summary-value" id="tagIst">–</div><div class="summary-label">Ist</div></div>
         <div class="summary-card"><div class="summary-value" id="tagSoll">–</div><div class="summary-label">Soll</div></div>
@@ -401,6 +414,7 @@
   let currentUser = null;
   let allSessions = [];
   let allPauses = [];
+  let allAbsences = [];
   let settings = { weekly_target_hours: 40 };
   let runningSession = null;
   let runningPause = null;
@@ -488,13 +502,17 @@
   function netMinutesForDate(dateStr) {
     return sessionsForDate(dateStr).reduce((sum, s) => sum + sessionNetMinutes(s, pausesForSession(s.id)), 0);
   }
-  function targetMinutesForDate(dateObj) {
-    const dow = dateObj.getDay();
+  function absenceForDate(dateStr) {
+    return allAbsences.find(a => a.date === dateStr) || null;
+  }
+  function targetMinutesForDate(dateStr) {
+    if (absenceForDate(dateStr)) return 0;
+    const dow = parseLocalDate(dateStr).getDay();
     if (dow === 0 || dow === 6) return 0;
     return (settings.weekly_target_hours / 5) * 60;
   }
   function diffMinutesForDate(dateStr) {
-    return netMinutesForDate(dateStr) - targetMinutesForDate(parseLocalDate(dateStr));
+    return netMinutesForDate(dateStr) - targetMinutesForDate(dateStr);
   }
   function cumulativeDiffUpTo(endDateStr) {
     if (!allSessions.length) return 0;
@@ -579,13 +597,15 @@
   }
 
   async function loadAllData() {
-    const [sessRes, pauseRes, settRes] = await Promise.all([
+    const [sessRes, pauseRes, settRes, absRes] = await Promise.all([
       sb.from('time_sessions').select('*').eq('user_id', currentUser.id).order('start_time', { ascending: true }),
       sb.from('time_pauses').select('*').eq('user_id', currentUser.id).order('start_time', { ascending: true }),
-      sb.from('time_settings').select('*').eq('user_id', currentUser.id).maybeSingle()
+      sb.from('time_settings').select('*').eq('user_id', currentUser.id).maybeSingle(),
+      sb.from('time_absences').select('*').eq('user_id', currentUser.id)
     ]);
     allSessions = sessRes.data || [];
     allPauses = pauseRes.data || [];
+    allAbsences = absRes.data || [];
     settings = settRes.data || { weekly_target_hours: 40 };
     runningSession = allSessions.find(s => !s.end_time) || null;
     runningPause = runningSession ? (allPauses.find(p => String(p.session_id) === String(runningSession.id) && !p.end_time) || null) : null;
@@ -737,10 +757,11 @@
     const sessions = sessionsForDate(selectedDayDate);
     document.getElementById('tagList').innerHTML = sessions.length ? sessions.map(sessionRowHtml).join('') : '<div class="empty-state">Keine Einträge an diesem Tag.</div>';
     const net = netMinutesForDate(selectedDayDate);
-    const target = targetMinutesForDate(d);
+    const target = targetMinutesForDate(selectedDayDate);
     document.getElementById('tagIst').textContent = fmtHM(net);
     document.getElementById('tagSoll').textContent = fmtHM(target);
     setDiffEl('tagDiff', net - target);
+    renderAbsenceToggle();
   }
   function stepDay(delta) {
     selectedDayDate = localDateStr(addDays(parseLocalDate(selectedDayDate), delta));
@@ -754,6 +775,33 @@
     el.classList.toggle('negative', diff < 0);
   }
 
+  function renderAbsenceToggle() {
+    const current = absenceForDate(selectedDayDate);
+    const activeType = current ? current.type : 'none';
+    document.querySelectorAll('#absenceToggle button').forEach(b => b.classList.toggle('active', b.dataset.atype === activeType));
+  }
+
+  async function setAbsence(type) {
+    const current = absenceForDate(selectedDayDate);
+    if (type === 'none') {
+      if (!current) return;
+      const { error } = await sb.from('time_absences').delete().eq('id', current.id).eq('user_id', currentUser.id);
+      if (error) { showToast('Fehler: ' + error.message); return; }
+      await loadAllData();
+      renderAll();
+      showToast('Abwesenheit entfernt');
+      return;
+    }
+    const { error } = await sb.from('time_absences').upsert(
+      { user_id: currentUser.id, date: selectedDayDate, type },
+      { onConflict: 'user_id,date' }
+    );
+    if (error) { showToast('Fehler: ' + error.message); return; }
+    await loadAllData();
+    renderAll();
+    showToast(type === 'krank' ? 'Als krank markiert' : 'Urlaub eingetragen');
+  }
+
   // ── Übersicht: Woche ─────────────────────────────────────────
   function renderWoche() {
     const days = [...Array(7)].map((_, i) => addDays(selectedWeekStart, i));
@@ -763,11 +811,13 @@
     const rowsHtml = days.map(d => {
       const ds = localDateStr(d);
       const net = netMinutesForDate(ds);
-      const target = targetMinutesForDate(d);
+      const target = targetMinutesForDate(ds);
       const diff = net - target;
       wIst += net;
+      const absence = absenceForDate(ds);
+      const absenceBadge = absence ? (absence.type === 'krank' ? ' 🤒' : ' 🌴') : '';
       return `<div class="week-row" onclick="goToDay('${ds}')">
-        <span class="week-day">${d.toLocaleDateString('de-DE', { weekday: 'short', day: '2-digit', month: '2-digit' })}</span>
+        <span class="week-day">${d.toLocaleDateString('de-DE', { weekday: 'short', day: '2-digit', month: '2-digit' })}${absenceBadge}</span>
         <span>${fmtHM(net)}</span>
         <span>${fmtHM(target)}</span>
         <span class="${diff >= 0 ? 'positive' : 'negative'}">${fmtDiff(diff)}</span>
@@ -805,11 +855,15 @@
         cls += ' cal-outside';
       } else if (ds <= todayStr) {
         const net = netMinutesForDate(ds);
-        const target = targetMinutesForDate(d);
+        const target = targetMinutesForDate(ds);
         const diff = net - target;
         mIst += net;
         mSoll += target;
-        if (target > 0 || net > 0) {
+        const absence = absenceForDate(ds);
+        if (absence) {
+          cls += ' cal-absence';
+          content += `<div class="cal-hours">${absence.type === 'krank' ? '🤒' : '🌴'}</div>`;
+        } else if (target > 0 || net > 0) {
           cls += diff > 0 ? ' cal-pos' : diff < 0 ? ' cal-neg' : ' cal-neutral';
           const hoursLabel = net >= 60 ? `${(net / 60).toFixed(1)}h` : `${Math.round(net)}min`;
           content += `<div class="cal-hours">${hoursLabel}</div>`;
