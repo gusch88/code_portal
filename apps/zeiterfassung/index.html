@@ -1,0 +1,1012 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Zeiterfassung</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:wght@400;500&family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0a0c; --surface: #13141a; --surface2: #1c1e27;
+    --border: #252830; --accent: #f5c518; --accent2: #e8a800;
+    --text: #f0f0f2; --muted: #6b7080; --red: #ef4444; --green: #4ade80;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: 'DM Sans', sans-serif; min-height: 100vh; overflow-x: hidden; }
+  body::before {
+    content: ''; position: fixed; inset: 0; pointer-events: none; z-index: 0;
+    background-image: linear-gradient(rgba(245,197,24,0.025) 1px, transparent 1px), linear-gradient(90deg, rgba(245,197,24,0.025) 1px, transparent 1px);
+    background-size: 48px 48px;
+  }
+
+  .loading-screen {
+    position: fixed; inset: 0; background: var(--bg);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 200; font-family: 'Bebas Neue', sans-serif;
+    font-size: 1.2rem; letter-spacing: 3px; color: var(--muted);
+  }
+  .loading-screen.hidden { display: none; }
+
+  nav {
+    position: sticky; top: 0; z-index: 60;
+    background: rgba(10,10,12,0.92); backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; gap: 16px; padding: 0 24px; height: 56px;
+  }
+  .nav-back {
+    background: var(--surface2); border: 1px solid var(--border); color: var(--muted);
+    border-radius: 7px; padding: 6px 12px; font-size: 0.8rem; cursor: pointer;
+    text-decoration: none; transition: all 0.15s;
+  }
+  .nav-back:hover { border-color: var(--accent); color: var(--accent); }
+  .nav-title { font-family: 'Bebas Neue', sans-serif; font-size: 1.4rem; letter-spacing: 3px; }
+  .nav-title span { color: var(--accent); }
+  .nav-user { margin-left: auto; font-size: 0.75rem; color: var(--muted); font-family: 'DM Mono', monospace; }
+
+  .tabs-nav { position: sticky; top: 56px; z-index: 55; background: var(--bg); border-bottom: 1px solid var(--border); display: flex; gap: 4px; padding: 0 20px; overflow-x: auto; }
+  .tabs-inner-wrap { max-width: 720px; margin: 0 auto; display: flex; gap: 4px; width: 100%; }
+  .tab-btn { background: none; border: none; color: var(--muted); cursor: pointer; font-family: 'Bebas Neue', sans-serif; font-size: 1rem; letter-spacing: 2px; padding: 13px 18px 11px; white-space: nowrap; border-bottom: 2px solid transparent; transition: color 0.15s, border-color 0.15s; }
+  .tab-btn:hover { color: var(--text); }
+  .tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+  .tab-panel { display: none; }
+  .tab-panel.active { display: block; }
+
+  .subtab-bar { display: flex; gap: 3px; background: var(--surface2); border: 1px solid var(--border); border-radius: 9px; padding: 3px; margin-bottom: 22px; width: fit-content; }
+  .subtab-btn { background: none; border: none; color: var(--muted); padding: 7px 16px; border-radius: 7px; font-size: 0.82rem; font-weight: 600; cursor: pointer; font-family: 'DM Sans', sans-serif; transition: all 0.15s; }
+  .subtab-btn.active { background: var(--accent); color: #000; }
+  .subtab-panel { display: none; }
+  .subtab-panel.active { display: block; }
+
+  .container { max-width: 720px; margin: 0 auto; padding: 28px 20px 60px; position: relative; z-index: 1; }
+  .section-title { font-family: 'Bebas Neue', sans-serif; font-size: 1.15rem; letter-spacing: 2px; color: var(--muted); margin-bottom: 16px; }
+  .section-block { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 20px 22px; margin-bottom: 22px; }
+
+  /* ── Timer ── */
+  .timer-card { text-align: center; padding: 36px 20px 28px; }
+  .timer-display { font-family: 'DM Mono', monospace; font-size: 4rem; font-weight: 500; letter-spacing: 2px; color: var(--accent); transition: color 0.2s; }
+  .timer-display.paused { color: var(--muted); }
+  .timer-status { font-size: 0.78rem; color: var(--muted); text-transform: uppercase; letter-spacing: 2px; margin: 6px 0 24px; min-height: 1em; }
+  .timer-controls { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; margin-bottom: 8px; }
+  .btn-timer { border: none; border-radius: 10px; padding: 15px 30px; font-family: 'Bebas Neue', sans-serif; font-size: 1.15rem; letter-spacing: 2px; cursor: pointer; transition: all 0.15s; }
+  .btn-timer-primary { background: var(--accent); color: #000; }
+  .btn-timer-primary:hover { background: var(--accent2); }
+  .btn-timer-primary.running { background: var(--red); color: #fff; }
+  .btn-timer-secondary { background: var(--surface2); border: 1px solid var(--border); color: var(--text); }
+  .btn-timer-secondary:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+  .btn-timer-secondary:disabled { opacity: 0.35; cursor: not-allowed; }
+  .note-field { margin-top: 20px; max-width: 340px; margin-left: auto; margin-right: auto; }
+  .note-field input { width: 100%; background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; color: var(--text); padding: 9px 12px; font-size: 0.85rem; outline: none; transition: border-color 0.2s; }
+  .note-field input:focus { border-color: var(--accent); }
+
+  .list-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; flex-wrap: wrap; gap: 10px; }
+  .btn-link-row { display: flex; gap: 8px; flex-wrap: wrap; }
+  .btn-small { background: var(--surface2); border: 1px solid var(--border); color: var(--text); border-radius: 8px; padding: 7px 14px; font-size: 0.78rem; font-weight: 600; cursor: pointer; transition: all 0.15s; font-family: 'DM Sans', sans-serif; }
+  .btn-small:hover { border-color: var(--accent); color: var(--accent); }
+
+  .entry-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; margin-bottom: 10px; }
+  .entry-row { display: flex; align-items: center; gap: 10px; }
+  .entry-time { font-family: 'DM Mono', monospace; font-size: 0.88rem; flex: 1; }
+  .entry-note { font-size: 0.72rem; color: var(--muted); margin-top: 2px; }
+  .entry-net { font-family: 'DM Mono', monospace; font-size: 0.85rem; color: var(--accent); white-space: nowrap; }
+  .entry-actions { display: flex; gap: 4px; }
+  .icon-btn { background: none; border: 1px solid var(--border); color: var(--muted); border-radius: 6px; width: 26px; height: 26px; cursor: pointer; font-size: 0.78rem; display: flex; align-items: center; justify-content: center; transition: all 0.15s; }
+  .icon-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .pause-list { margin-top: 10px; padding-left: 12px; border-left: 2px solid var(--border); display: flex; flex-direction: column; gap: 6px; }
+  .pause-row { display: flex; align-items: center; justify-content: space-between; font-size: 0.78rem; color: var(--muted); gap: 8px; }
+  .empty-state { text-align: center; padding: 34px 20px; color: var(--muted); font-size: 0.88rem; }
+
+  /* ── Summary / Stepper ── */
+  .stepper { display: flex; align-items: center; justify-content: center; gap: 16px; margin-bottom: 22px; }
+  .stepper button { background: var(--surface2); border: 1px solid var(--border); color: var(--text); border-radius: 8px; width: 34px; height: 34px; cursor: pointer; font-size: 1rem; transition: all 0.15s; }
+  .stepper button:hover { border-color: var(--accent); color: var(--accent); }
+  .stepper-label { font-family: 'Bebas Neue', sans-serif; font-size: 1.25rem; letter-spacing: 1.5px; min-width: 180px; text-align: center; }
+
+  .summary-strip { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 24px; }
+  .summary-card { flex: 1; min-width: 100px; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 14px 12px; text-align: center; }
+  .summary-value { font-family: 'Bebas Neue', sans-serif; font-size: 1.4rem; }
+  .summary-label { font-size: 0.65rem; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; margin-top: 2px; }
+  .positive { color: var(--green); }
+  .negative { color: var(--red); }
+
+  /* ── Woche ── */
+  .week-table { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; margin-bottom: 24px; }
+  .week-row { display: grid; grid-template-columns: 1.3fr 1fr 1fr 1fr; gap: 8px; padding: 11px 14px; border-bottom: 1px solid var(--border); cursor: pointer; font-size: 0.83rem; align-items: center; transition: background 0.1s; }
+  .week-row:last-child { border-bottom: none; }
+  .week-row:hover { background: var(--surface2); }
+  .week-row-head { font-size: 0.68rem; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; cursor: default; }
+  .week-row-head:hover { background: none; }
+  .week-day { font-family: 'DM Mono', monospace; }
+
+  /* ── Monat ── */
+  .cal-weekdays { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; margin-bottom: 6px; }
+  .cal-weekday { text-align: center; font-size: 0.68rem; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; padding-bottom: 4px; }
+  .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; margin-bottom: 24px; }
+  .cal-cell { aspect-ratio: 1; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 6px; cursor: pointer; display: flex; flex-direction: column; transition: border-color 0.15s; }
+  .cal-cell:hover { border-color: var(--accent); }
+  .cal-cell.cal-outside { opacity: 0.2; cursor: default; }
+  .cal-daynum { font-family: 'DM Mono', monospace; font-size: 0.72rem; color: var(--muted); }
+  .cal-hours { margin-top: auto; font-size: 0.68rem; font-family: 'DM Mono', monospace; }
+  .cal-pos { background: rgba(74,222,128,0.08); border-color: rgba(74,222,128,0.3); }
+  .cal-pos .cal-hours { color: var(--green); }
+  .cal-neg { background: rgba(239,68,68,0.07); border-color: rgba(239,68,68,0.28); }
+  .cal-neg .cal-hours { color: var(--red); }
+  .cal-neutral .cal-hours { color: var(--muted); }
+
+  /* ── Einstellungen ── */
+  .settings-field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 18px; max-width: 260px; }
+  .settings-field label { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 1.5px; color: var(--muted); }
+  .settings-field input { background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; color: var(--text); padding: 10px 13px; font-family: 'DM Mono', monospace; font-size: 0.95rem; outline: none; transition: border-color 0.2s; }
+  .settings-field input:focus { border-color: var(--accent); }
+  .btn-save-settings { background: var(--accent); color: #000; border: none; border-radius: 8px; padding: 11px 22px; font-family: 'Bebas Neue', sans-serif; font-size: 1rem; letter-spacing: 2px; cursor: pointer; }
+  .btn-save-settings:hover { background: var(--accent2); }
+  .settings-hint { margin-top: 22px; padding: 12px 14px; background: var(--surface2); border: 1px solid var(--border); border-radius: 10px; color: var(--muted); font-size: 0.8rem; opacity: 0.7; }
+
+  /* ── Modals ── */
+  .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.6); display: none; align-items: center; justify-content: center; z-index: 300; backdrop-filter: blur(4px); }
+  .modal-overlay.show { display: flex; }
+  .modal-content { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 28px; max-width: 420px; width: 90%; box-shadow: 0 24px 64px rgba(0,0,0,0.6); max-height: 88vh; overflow-y: auto; }
+  .modal-title { font-family: 'Bebas Neue', sans-serif; font-size: 1.3rem; letter-spacing: 2px; margin-bottom: 20px; }
+  .modal-field { display: flex; flex-direction: column; gap: 5px; margin-bottom: 14px; }
+  .modal-field label { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 1.5px; color: var(--muted); }
+  .modal-field input, .modal-field select { background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; color: var(--text); padding: 10px 13px; font-family: 'DM Mono', monospace; font-size: 0.9rem; outline: none; transition: border-color 0.2s; }
+  .modal-field input:focus, .modal-field select:focus { border-color: var(--accent); }
+  .modal-hint { font-size: 0.72rem; color: var(--muted); margin-top: -8px; margin-bottom: 14px; line-height: 1.4; }
+  .modal-buttons { display: flex; gap: 10px; margin-top: 24px; }
+  .btn-modal { flex: 1; border: none; border-radius: 8px; padding: 11px; font-family: 'Bebas Neue', sans-serif; font-size: 0.95rem; letter-spacing: 2px; cursor: pointer; }
+  .btn-save { background: var(--accent); color: #000; }
+  .btn-save:hover { background: var(--accent2); }
+  .btn-cancel { background: var(--surface2); color: var(--muted); border: 1px solid var(--border); }
+  .btn-cancel:hover { border-color: var(--accent); color: var(--accent); }
+  .btn-danger { background: var(--red); color: #fff; }
+  .btn-danger:hover { filter: brightness(1.1); }
+  .modal-text { font-size: 0.88rem; color: var(--text); line-height: 1.5; }
+  .modal-error { color: var(--red); font-size: 0.8rem; margin-top: 4px; display: none; }
+  .modal-error.show { display: block; }
+
+  .mode-toggle { display: flex; gap: 3px; background: var(--surface2); border: 1px solid var(--border); border-radius: 9px; padding: 3px; margin-bottom: 16px; width: fit-content; }
+  .mode-toggle button { background: none; border: none; color: var(--muted); padding: 6px 14px; border-radius: 7px; font-size: 0.78rem; font-weight: 600; cursor: pointer; font-family: 'DM Sans', sans-serif; transition: all 0.15s; }
+  .mode-toggle button.active { background: var(--accent); color: #000; }
+
+  .toast { position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%) translateY(70px); background: var(--accent); color: #000; padding: 11px 24px; border-radius: 999px; font-family: 'Bebas Neue', sans-serif; font-size: 0.95rem; letter-spacing: 2px; z-index: 999; transition: transform 0.3s; white-space: nowrap; }
+  .toast.show { transform: translateX(-50%) translateY(0); }
+
+  @media (max-width: 600px) {
+    nav { padding: 0 16px; }
+    .container { padding: 20px 14px 50px; }
+    .timer-display { font-size: 2.8rem; }
+    .nav-user { display: none; }
+    .week-row { grid-template-columns: 1.2fr 1fr 1fr 1fr; font-size: 0.75rem; }
+  }
+</style>
+</head>
+<body>
+
+<div class="loading-screen" id="loadingScreen">Lade Zeiterfassung…</div>
+
+<nav>
+  <a class="nav-back" href="../../index.html">← Portal</a>
+  <div class="nav-title"><span>Zeit</span>erfassung</div>
+  <div class="nav-user" id="navUser"></div>
+</nav>
+
+<div class="tabs-nav">
+  <div class="tabs-inner-wrap">
+    <button class="tab-btn active" data-tab="timer" onclick="setTab('timer')">Timer</button>
+    <button class="tab-btn" data-tab="uebersicht" onclick="setTab('uebersicht')">Übersicht</button>
+    <button class="tab-btn" data-tab="einstellungen" onclick="setTab('einstellungen')">Einstellungen</button>
+  </div>
+</div>
+
+<div class="container">
+
+  <!-- ═══ TAB: Timer ═══ -->
+  <div class="tab-panel active" id="panel-timer">
+    <div class="section-block timer-card">
+      <div class="timer-display" id="timerDisplay">00:00:00</div>
+      <div class="timer-status" id="timerStatusLabel"></div>
+      <div class="timer-controls">
+        <button class="btn-timer btn-timer-primary" id="btnStartStop" onclick="toggleWorkTimer()">Start</button>
+        <button class="btn-timer btn-timer-secondary" id="btnPause" onclick="togglePauseTimer()" disabled>Pause starten</button>
+      </div>
+      <div class="note-field">
+        <input type="text" id="runningNote" placeholder="Notiz zur laufenden Session (optional)" oninput="debouncedSaveRunningNote()">
+      </div>
+    </div>
+
+    <div class="section-block">
+      <div class="list-header">
+        <div class="section-title" style="margin-bottom:0">Heute</div>
+        <div class="btn-link-row">
+          <button class="btn-small" onclick="openManualPauseModal()">+ Pause manuell</button>
+          <button class="btn-small" onclick="openManualSessionModal()">+ Manueller Eintrag</button>
+        </div>
+      </div>
+      <div id="todayList"></div>
+    </div>
+  </div>
+
+  <!-- ═══ TAB: Übersicht ═══ -->
+  <div class="tab-panel" id="panel-uebersicht">
+    <div class="subtab-bar">
+      <button class="subtab-btn active" data-view="tag" onclick="setUebersichtView('tag')">Tag</button>
+      <button class="subtab-btn" data-view="woche" onclick="setUebersichtView('woche')">Woche</button>
+      <button class="subtab-btn" data-view="monat" onclick="setUebersichtView('monat')">Monat</button>
+    </div>
+
+    <!-- Tag -->
+    <div class="subtab-panel active" id="sub-tag">
+      <div class="stepper">
+        <button onclick="stepDay(-1)">◀</button>
+        <div class="stepper-label" id="tagDateLabel"></div>
+        <button onclick="stepDay(1)">▶</button>
+      </div>
+      <div style="text-align:center;margin-bottom:20px;"><button class="btn-small" onclick="goToday()">Heute</button></div>
+      <div class="summary-strip">
+        <div class="summary-card"><div class="summary-value" id="tagIst">–</div><div class="summary-label">Ist</div></div>
+        <div class="summary-card"><div class="summary-value" id="tagSoll">–</div><div class="summary-label">Soll</div></div>
+        <div class="summary-card"><div class="summary-value" id="tagDiff">–</div><div class="summary-label">Differenz</div></div>
+      </div>
+      <div class="list-header">
+        <div class="section-title" style="margin-bottom:0">Einträge</div>
+        <div class="btn-link-row">
+          <button class="btn-small" onclick="openManualPauseModal()">+ Pause manuell</button>
+          <button class="btn-small" onclick="openManualSessionModal()">+ Manueller Eintrag</button>
+        </div>
+      </div>
+      <div id="tagList"></div>
+    </div>
+
+    <!-- Woche -->
+    <div class="subtab-panel" id="sub-woche">
+      <div class="stepper">
+        <button onclick="stepWeek(-1)">◀</button>
+        <div class="stepper-label" id="wocheLabel"></div>
+        <button onclick="stepWeek(1)">▶</button>
+      </div>
+      <div style="text-align:center;margin-bottom:20px;"><button class="btn-small" onclick="goToThisWeek()">Diese Woche</button></div>
+      <div class="summary-strip">
+        <div class="summary-card"><div class="summary-value" id="wocheIst">–</div><div class="summary-label">Ist</div></div>
+        <div class="summary-card"><div class="summary-value" id="wocheSoll">–</div><div class="summary-label">Soll</div></div>
+        <div class="summary-card"><div class="summary-value" id="wocheDiff">–</div><div class="summary-label">Differenz</div></div>
+        <div class="summary-card"><div class="summary-value" id="wocheKonto">–</div><div class="summary-label">Überstundenkonto</div></div>
+      </div>
+      <div class="week-table">
+        <div class="week-row week-row-head"><span>Tag</span><span>Ist</span><span>Soll</span><span>Differenz</span></div>
+        <div id="wocheRows"></div>
+      </div>
+    </div>
+
+    <!-- Monat -->
+    <div class="subtab-panel" id="sub-monat">
+      <div class="stepper">
+        <button onclick="stepMonth(-1)">◀</button>
+        <div class="stepper-label" id="monatLabel"></div>
+        <button onclick="stepMonth(1)">▶</button>
+      </div>
+      <div style="text-align:center;margin-bottom:20px;"><button class="btn-small" onclick="goToThisMonth()">Dieser Monat</button></div>
+      <div class="summary-strip">
+        <div class="summary-card"><div class="summary-value" id="monatIst">–</div><div class="summary-label">Ist</div></div>
+        <div class="summary-card"><div class="summary-value" id="monatSoll">–</div><div class="summary-label">Soll</div></div>
+        <div class="summary-card"><div class="summary-value" id="monatDiff">–</div><div class="summary-label">Differenz</div></div>
+        <div class="summary-card"><div class="summary-value" id="monatKonto">–</div><div class="summary-label">Überstundenkonto</div></div>
+      </div>
+      <div class="cal-weekdays">
+        <div class="cal-weekday">Mo</div><div class="cal-weekday">Di</div><div class="cal-weekday">Mi</div>
+        <div class="cal-weekday">Do</div><div class="cal-weekday">Fr</div><div class="cal-weekday">Sa</div><div class="cal-weekday">So</div>
+      </div>
+      <div class="cal-grid" id="monatGrid"></div>
+    </div>
+  </div>
+
+  <!-- ═══ TAB: Einstellungen ═══ -->
+  <div class="tab-panel" id="panel-einstellungen">
+    <div class="section-block">
+      <div class="section-title">Arbeitszeit</div>
+      <div class="settings-field">
+        <label>Wöchentliche Soll-Stunden</label>
+        <input type="number" id="settingsWeeklyHours" min="1" max="168" step="0.5">
+      </div>
+      <button class="btn-save-settings" onclick="saveSettings()">Speichern</button>
+      <div class="settings-hint">📍 Automatischer Timer-Start per Standort ist als nächste Ausbaustufe geplant.</div>
+    </div>
+  </div>
+
+</div>
+
+<!-- Edit Modal (Session oder Pause) -->
+<div class="modal-overlay" id="editModal">
+  <div class="modal-content">
+    <div class="modal-title" id="editModalTitle">Eintrag bearbeiten</div>
+    <div class="modal-field"><label>Start</label><input type="datetime-local" id="editStart"></div>
+    <div class="modal-field"><label>Ende</label><input type="datetime-local" id="editEnd"></div>
+    <div class="modal-field"><label>Notiz (optional)</label><input type="text" id="editNote"></div>
+    <div class="modal-error" id="editError"></div>
+    <div class="modal-buttons">
+      <button class="btn-modal btn-save" onclick="saveEdit()">Speichern</button>
+      <button class="btn-modal btn-cancel" onclick="closeEditModal()">Abbrechen</button>
+    </div>
+  </div>
+</div>
+
+<!-- Delete Confirm Modal -->
+<div class="modal-overlay" id="deleteConfirmModal">
+  <div class="modal-content">
+    <div class="modal-title">Eintrag löschen?</div>
+    <p class="modal-text" id="deleteConfirmText"></p>
+    <div class="modal-buttons">
+      <button class="btn-modal btn-danger" onclick="confirmDeleteEntry()">Löschen</button>
+      <button class="btn-modal btn-cancel" onclick="closeDeleteConfirm()">Abbrechen</button>
+    </div>
+  </div>
+</div>
+
+<!-- Manuelle Session -->
+<div class="modal-overlay" id="manualSessionModal">
+  <div class="modal-content">
+    <div class="modal-title">Manueller Eintrag</div>
+    <div class="modal-field"><label>Datum</label><input type="date" id="msDate"></div>
+    <div class="modal-field"><label>Start</label><input type="time" id="msStart"></div>
+    <div class="modal-field"><label>Ende</label><input type="time" id="msEnd"></div>
+    <div class="modal-field"><label>Notiz (optional)</label><input type="text" id="msNote"></div>
+    <div class="modal-error" id="msError"></div>
+    <div class="modal-buttons">
+      <button class="btn-modal btn-save" onclick="saveManualSession()">Speichern</button>
+      <button class="btn-modal btn-cancel" onclick="closeManualSessionModal()">Abbrechen</button>
+    </div>
+  </div>
+</div>
+
+<!-- Manuelle Pause -->
+<div class="modal-overlay" id="manualPauseModal">
+  <div class="modal-content">
+    <div class="modal-title">Pause hinzufügen</div>
+    <div class="modal-field">
+      <label>Session</label>
+      <select id="mpSession"></select>
+    </div>
+    <div class="mode-toggle">
+      <button type="button" class="active" data-mode="zeitraum" onclick="setPauseMode('zeitraum')">Zeitraum</button>
+      <button type="button" data-mode="dauer" onclick="setPauseMode('dauer')">Dauer</button>
+    </div>
+    <div id="mpZeitraumFields">
+      <div class="modal-field"><label>Start</label><input type="time" id="mpStart"></div>
+      <div class="modal-field"><label>Ende</label><input type="time" id="mpEnd"></div>
+    </div>
+    <div id="mpDauerFields" style="display:none;">
+      <div class="modal-field"><label>Dauer (Minuten)</label><input type="number" id="mpDuration" min="1" step="1"></div>
+      <div class="modal-hint">Wird ab Sitzungsbeginn eingetragen. Bei Bedarf danach über „Bearbeiten“ anpassen.</div>
+    </div>
+    <div class="modal-error" id="mpError"></div>
+    <div class="modal-buttons">
+      <button class="btn-modal btn-save" onclick="saveManualPause()">Speichern</button>
+      <button class="btn-modal btn-cancel" onclick="closeManualPauseModal()">Abbrechen</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+  // ── Supabase Init ──────────────────────────────────────────
+  const SUPABASE_URL  = 'https://xtbnrrhzhcvcetsdsfao.supabase.co';
+  const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh0Ym5ycmh6aGN2Y2V0c2RzZmFvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUxMjgzNTIsImV4cCI6MjA5MDcwNDM1Mn0.haEACxqAosN3dQ2Qz_Y2mzpYDI1RRB4TKjghmpRt_mc';
+  const { createClient } = supabase;
+  const sb = createClient(SUPABASE_URL, SUPABASE_ANON);
+
+  const TAB_KEY = 'zeiterfassung_active_tab_v1';
+  const UVIEW_KEY = 'zeiterfassung_uebersicht_view_v1';
+  const MS_MIN = 60000;
+
+  let currentUser = null;
+  let allSessions = [];
+  let allPauses = [];
+  let settings = { weekly_target_hours: 40 };
+  let runningSession = null;
+  let runningPause = null;
+
+  let currentTab = 'timer';
+  let uebersichtView = 'tag';
+
+  let selectedDayDate = localDateStr(new Date());
+  let selectedWeekStart = mondayOf(new Date());
+  let selectedMonth = firstOfMonth(new Date());
+
+  let editingType = null, editingId = null;
+  let pendingDelete = null;
+  let pauseMode = 'zeitraum';
+  let runningNoteTimer = null;
+
+  // ── Zeit-Helfer ──────────────────────────────────────────────
+  function nowIso() { return new Date().toISOString(); }
+  function minutesBetween(a, b) { return (b - a) / MS_MIN; }
+  function localDateStr(d) {
+    const y = d.getFullYear(), m = String(d.getMonth() + 1).padStart(2, '0'), da = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${da}`;
+  }
+  function parseLocalDate(dateStr) {
+    const [y, m, d] = dateStr.split('-').map(Number);
+    return new Date(y, m - 1, d);
+  }
+  function addDays(d, n) { const r = new Date(d); r.setDate(r.getDate() + n); return r; }
+  function mondayOf(d) {
+    const r = new Date(d);
+    const dow = (r.getDay() + 6) % 7;
+    r.setDate(r.getDate() - dow);
+    r.setHours(0, 0, 0, 0);
+    return r;
+  }
+  function firstOfMonth(d) { return new Date(d.getFullYear(), d.getMonth(), 1); }
+  function isoWeekNumber(d) {
+    const date = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+    const dayNum = (date.getUTCDay() + 6) % 7;
+    date.setUTCDate(date.getUTCDate() - dayNum + 3);
+    const firstThursday = new Date(Date.UTC(date.getUTCFullYear(), 0, 4));
+    return 1 + Math.round(((date - firstThursday) / 86400000 - 3 + ((firstThursday.getUTCDay() + 6) % 7)) / 7);
+  }
+  function fmtHM(minutes) {
+    const abs = Math.round(Math.abs(minutes));
+    const h = Math.floor(abs / 60), m = abs % 60;
+    return `${h}:${String(m).padStart(2, '0')} h`;
+  }
+  function fmtDiff(minutes) {
+    const sign = minutes >= 0 ? '+' : '-';
+    const abs = Math.round(Math.abs(minutes));
+    const h = Math.floor(abs / 60), m = abs % 60;
+    return `${sign}${h}:${String(m).padStart(2, '0')} h`;
+  }
+  function fmtHMS(totalSeconds) {
+    const s = Math.max(0, Math.floor(totalSeconds));
+    const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), sec = s % 60;
+    return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}`;
+  }
+  function timeLabel(iso) { return new Date(iso).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' }); }
+  function toLocalInputValue(iso) {
+    const d = new Date(iso);
+    const pad = n => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  }
+
+  // ── Berechnungen ────────────────────────────────────────────
+  function pausesForSession(sessionId) {
+    return allPauses.filter(p => String(p.session_id) === String(sessionId));
+  }
+  function sessionsForDate(dateStr) {
+    return allSessions.filter(s => s.work_date === dateStr).sort((a, b) => new Date(a.start_time) - new Date(b.start_time));
+  }
+  function sessionNetMinutes(session, pauses) {
+    const start = new Date(session.start_time);
+    const end = session.end_time ? new Date(session.end_time) : new Date();
+    let mins = minutesBetween(start, end);
+    pauses.forEach(p => {
+      const pStart = new Date(p.start_time);
+      const pEnd = p.end_time ? new Date(p.end_time) : new Date();
+      mins -= minutesBetween(pStart, pEnd);
+    });
+    return Math.max(0, mins);
+  }
+  function netMinutesForDate(dateStr) {
+    return sessionsForDate(dateStr).reduce((sum, s) => sum + sessionNetMinutes(s, pausesForSession(s.id)), 0);
+  }
+  function targetMinutesForDate(dateObj) {
+    const dow = dateObj.getDay();
+    if (dow === 0 || dow === 6) return 0;
+    return (settings.weekly_target_hours / 5) * 60;
+  }
+  function diffMinutesForDate(dateStr) {
+    return netMinutesForDate(dateStr) - targetMinutesForDate(parseLocalDate(dateStr));
+  }
+  function cumulativeDiffUpTo(endDateStr) {
+    if (!allSessions.length) return 0;
+    const minDateStr = allSessions.reduce((min, s) => (s.work_date < min ? s.work_date : min), allSessions[0].work_date);
+    const todayStr = localDateStr(new Date());
+    const clampedEnd = endDateStr > todayStr ? todayStr : endDateStr;
+    if (clampedEnd < minDateStr) return 0;
+    let cursor = parseLocalDate(minDateStr);
+    const end = parseLocalDate(clampedEnd);
+    let total = 0;
+    while (cursor <= end) {
+      total += diffMinutesForDate(localDateStr(cursor));
+      cursor = addDays(cursor, 1);
+    }
+    return total;
+  }
+
+  // ── Toast ────────────────────────────────────────────────────
+  let toastTimer = null;
+  function showToast(msg, duration = 2600) {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => t.classList.remove('show'), duration);
+  }
+
+  // ── Tabs ─────────────────────────────────────────────────────
+  function setTab(tab) {
+    currentTab = tab;
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+    document.getElementById('panel-' + tab).classList.add('active');
+    localStorage.setItem(TAB_KEY, tab);
+    renderCurrentPanel();
+  }
+  function setUebersichtView(view) {
+    uebersichtView = view;
+    document.querySelectorAll('.subtab-btn').forEach(b => b.classList.toggle('active', b.dataset.view === view));
+    document.querySelectorAll('.subtab-panel').forEach(p => p.classList.remove('active'));
+    document.getElementById('sub-' + view).classList.add('active');
+    localStorage.setItem(UVIEW_KEY, view);
+    renderCurrentPanel();
+  }
+  function renderCurrentPanel() {
+    if (currentTab === 'timer') renderTimer();
+    else if (currentTab === 'uebersicht') {
+      if (uebersichtView === 'tag') renderTag();
+      else if (uebersichtView === 'woche') renderWoche();
+      else renderMonat();
+    } else if (currentTab === 'einstellungen') renderEinstellungen();
+  }
+  function renderAll() { renderCurrentPanel(); }
+  function goToDay(dateStr) {
+    selectedDayDate = dateStr;
+    setTab('uebersicht');
+    setUebersichtView('tag');
+  }
+  function goToday() { selectedDayDate = localDateStr(new Date()); renderTag(); }
+  function goToThisWeek() { selectedWeekStart = mondayOf(new Date()); renderWoche(); }
+  function goToThisMonth() { selectedMonth = firstOfMonth(new Date()); renderMonat(); }
+
+  // ── Init ─────────────────────────────────────────────────────
+  async function init() {
+    const { data: { session } } = await sb.auth.getSession();
+    if (!session) { window.location.href = '../../index.html'; return; }
+    currentUser = session.user;
+    document.getElementById('navUser').textContent = currentUser.email;
+
+    await loadAllData();
+
+    currentTab = localStorage.getItem(TAB_KEY) || 'timer';
+    uebersichtView = localStorage.getItem(UVIEW_KEY) || 'tag';
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === currentTab));
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.toggle('active', p.id === 'panel-' + currentTab));
+    document.querySelectorAll('.subtab-btn').forEach(b => b.classList.toggle('active', b.dataset.view === uebersichtView));
+    document.querySelectorAll('.subtab-panel').forEach(p => p.classList.toggle('active', p.id === 'sub-' + uebersichtView));
+
+    document.getElementById('loadingScreen').classList.add('hidden');
+    renderAll();
+    setInterval(updateLiveDisplay, 1000);
+  }
+
+  async function loadAllData() {
+    const [sessRes, pauseRes, settRes] = await Promise.all([
+      sb.from('time_sessions').select('*').eq('user_id', currentUser.id).order('start_time', { ascending: true }),
+      sb.from('time_pauses').select('*').eq('user_id', currentUser.id).order('start_time', { ascending: true }),
+      sb.from('time_settings').select('*').eq('user_id', currentUser.id).maybeSingle()
+    ]);
+    allSessions = sessRes.data || [];
+    allPauses = pauseRes.data || [];
+    settings = settRes.data || { weekly_target_hours: 40 };
+    runningSession = allSessions.find(s => !s.end_time) || null;
+    runningPause = runningSession ? (allPauses.find(p => String(p.session_id) === String(runningSession.id) && !p.end_time) || null) : null;
+  }
+
+  // ── Timer-Tab ────────────────────────────────────────────────
+  function renderTimer() {
+    const btn = document.getElementById('btnStartStop');
+    const pauseBtn = document.getElementById('btnPause');
+    const statusLabel = document.getElementById('timerStatusLabel');
+    const noteInput = document.getElementById('runningNote');
+
+    if (runningSession) {
+      btn.textContent = 'Stop';
+      btn.classList.add('running');
+      pauseBtn.disabled = false;
+      pauseBtn.textContent = runningPause ? 'Pause beenden' : 'Pause starten';
+      statusLabel.textContent = runningPause ? 'Pausiert' : 'Läuft seit ' + timeLabel(runningSession.start_time);
+      noteInput.value = runningSession.note || '';
+      noteInput.disabled = false;
+    } else {
+      btn.textContent = 'Start';
+      btn.classList.remove('running');
+      pauseBtn.disabled = true;
+      pauseBtn.textContent = 'Pause starten';
+      statusLabel.textContent = '';
+      noteInput.value = '';
+      noteInput.disabled = true;
+    }
+    updateLiveDisplay();
+    renderTodayList();
+  }
+
+  function updateLiveDisplay() {
+    const el = document.getElementById('timerDisplay');
+    if (!el) return;
+    if (!runningSession) { el.textContent = '00:00:00'; el.classList.remove('paused'); return; }
+    const netMin = sessionNetMinutes(runningSession, pausesForSession(runningSession.id));
+    el.textContent = fmtHMS(netMin * 60);
+    el.classList.toggle('paused', !!runningPause);
+
+    if (currentTab === 'uebersicht' && uebersichtView === 'tag' && selectedDayDate === localDateStr(new Date())) {
+      renderTag();
+    }
+  }
+
+  async function toggleWorkTimer() {
+    if (runningSession) {
+      if (runningPause) {
+        await sb.from('time_pauses').update({ end_time: nowIso() }).eq('id', runningPause.id);
+      }
+      const { error } = await sb.from('time_sessions').update({ end_time: nowIso() }).eq('id', runningSession.id);
+      if (error) { showToast('Fehler: ' + error.message); return; }
+      await loadAllData();
+      renderAll();
+      showToast('Timer gestoppt');
+    } else {
+      const start = new Date();
+      const { error } = await sb.from('time_sessions').insert({
+        user_id: currentUser.id, work_date: localDateStr(start), start_time: start.toISOString()
+      });
+      if (error) { showToast('Fehler: ' + error.message); return; }
+      await loadAllData();
+      renderAll();
+      showToast('Timer gestartet');
+    }
+  }
+
+  async function togglePauseTimer() {
+    if (!runningSession) { showToast('Bitte zuerst den Arbeits-Timer starten.'); return; }
+    if (runningPause) {
+      const { error } = await sb.from('time_pauses').update({ end_time: nowIso() }).eq('id', runningPause.id);
+      if (error) { showToast('Fehler: ' + error.message); return; }
+      showToast('Pause beendet');
+    } else {
+      const { error } = await sb.from('time_pauses').insert({
+        user_id: currentUser.id, session_id: runningSession.id, start_time: nowIso()
+      });
+      if (error) { showToast('Fehler: ' + error.message); return; }
+      showToast('Pause gestartet');
+    }
+    await loadAllData();
+    renderAll();
+  }
+
+  function debouncedSaveRunningNote() {
+    clearTimeout(runningNoteTimer);
+    runningNoteTimer = setTimeout(saveRunningNote, 600);
+  }
+  async function saveRunningNote() {
+    if (!runningSession) return;
+    const note = document.getElementById('runningNote').value.trim();
+    await sb.from('time_sessions').update({ note }).eq('id', runningSession.id);
+    runningSession.note = note;
+    const cached = allSessions.find(s => s.id === runningSession.id);
+    if (cached) cached.note = note;
+  }
+
+  function renderTodayList() {
+    const todayStr = localDateStr(new Date());
+    const sessions = sessionsForDate(todayStr);
+    const el = document.getElementById('todayList');
+    el.innerHTML = sessions.length ? sessions.map(sessionRowHtml).join('') : '<div class="empty-state">Noch keine Einträge heute.</div>';
+  }
+
+  function sessionRowHtml(s) {
+    const pauses = pausesForSession(s.id);
+    const net = sessionNetMinutes(s, pauses);
+    const startLabel = timeLabel(s.start_time);
+    const endLabel = s.end_time ? timeLabel(s.end_time) : 'läuft…';
+    const noteHtml = s.note ? `<div class="entry-note">${escapeHtml(s.note)}</div>` : '';
+    const pausesHtml = pauses.map(pauseRowHtml).join('');
+    return `<div class="entry-card">
+      <div class="entry-row">
+        <div class="entry-time">${startLabel} – ${endLabel}${noteHtml}</div>
+        <div class="entry-net">${fmtHM(net)}</div>
+        <div class="entry-actions">
+          <button class="icon-btn" onclick="openEditModal('session','${s.id}')" aria-label="Bearbeiten">✎</button>
+          <button class="icon-btn" onclick="requestDeleteEntry('session','${s.id}')" aria-label="Löschen">✕</button>
+        </div>
+      </div>
+      ${pausesHtml ? `<div class="pause-list">${pausesHtml}</div>` : ''}
+    </div>`;
+  }
+
+  function pauseRowHtml(p) {
+    const startLabel = timeLabel(p.start_time);
+    const endLabel = p.end_time ? timeLabel(p.end_time) : 'läuft…';
+    const mins = minutesBetween(new Date(p.start_time), p.end_time ? new Date(p.end_time) : new Date());
+    return `<div class="pause-row">
+      <span>⏸ ${startLabel} – ${endLabel} (${fmtHM(mins)})</span>
+      <span class="entry-actions">
+        <button class="icon-btn" onclick="openEditModal('pause','${p.id}')" aria-label="Bearbeiten">✎</button>
+        <button class="icon-btn" onclick="requestDeleteEntry('pause','${p.id}')" aria-label="Löschen">✕</button>
+      </span>
+    </div>`;
+  }
+
+  function escapeHtml(str) {
+    const div = document.createElement('div');
+    div.textContent = str;
+    return div.innerHTML;
+  }
+
+  // ── Übersicht: Tag ───────────────────────────────────────────
+  function renderTag() {
+    const d = parseLocalDate(selectedDayDate);
+    document.getElementById('tagDateLabel').textContent = d.toLocaleDateString('de-DE', { weekday: 'short', day: '2-digit', month: '2-digit', year: 'numeric' });
+    const sessions = sessionsForDate(selectedDayDate);
+    document.getElementById('tagList').innerHTML = sessions.length ? sessions.map(sessionRowHtml).join('') : '<div class="empty-state">Keine Einträge an diesem Tag.</div>';
+    const net = netMinutesForDate(selectedDayDate);
+    const target = targetMinutesForDate(d);
+    document.getElementById('tagIst').textContent = fmtHM(net);
+    document.getElementById('tagSoll').textContent = fmtHM(target);
+    setDiffEl('tagDiff', net - target);
+  }
+  function stepDay(delta) {
+    selectedDayDate = localDateStr(addDays(parseLocalDate(selectedDayDate), delta));
+    renderTag();
+  }
+
+  function setDiffEl(id, diff) {
+    const el = document.getElementById(id);
+    el.textContent = fmtDiff(diff);
+    el.classList.toggle('positive', diff >= 0);
+    el.classList.toggle('negative', diff < 0);
+  }
+
+  // ── Übersicht: Woche ─────────────────────────────────────────
+  function renderWoche() {
+    const days = [...Array(7)].map((_, i) => addDays(selectedWeekStart, i));
+    document.getElementById('wocheLabel').textContent = `KW ${isoWeekNumber(selectedWeekStart)} · ${days[0].toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit'})}–${days[6].toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit'})}`;
+
+    let wIst = 0;
+    const rowsHtml = days.map(d => {
+      const ds = localDateStr(d);
+      const net = netMinutesForDate(ds);
+      const target = targetMinutesForDate(d);
+      const diff = net - target;
+      wIst += net;
+      return `<div class="week-row" onclick="goToDay('${ds}')">
+        <span class="week-day">${d.toLocaleDateString('de-DE', { weekday: 'short', day: '2-digit', month: '2-digit' })}</span>
+        <span>${fmtHM(net)}</span>
+        <span>${fmtHM(target)}</span>
+        <span class="${diff >= 0 ? 'positive' : 'negative'}">${fmtDiff(diff)}</span>
+      </div>`;
+    }).join('');
+    document.getElementById('wocheRows').innerHTML = rowsHtml;
+
+    const wSoll = settings.weekly_target_hours * 60;
+    document.getElementById('wocheIst').textContent = fmtHM(wIst);
+    document.getElementById('wocheSoll').textContent = fmtHM(wSoll);
+    setDiffEl('wocheDiff', wIst - wSoll);
+    setDiffEl('wocheKonto', cumulativeDiffUpTo(localDateStr(days[6])));
+  }
+  function stepWeek(delta) {
+    selectedWeekStart = addDays(selectedWeekStart, delta * 7);
+    renderWoche();
+  }
+
+  // ── Übersicht: Monat ─────────────────────────────────────────
+  function renderMonat() {
+    document.getElementById('monatLabel').textContent = selectedMonth.toLocaleDateString('de-DE', { month: 'long', year: 'numeric' });
+    const year = selectedMonth.getFullYear(), month = selectedMonth.getMonth();
+    const startGrid = mondayOf(new Date(year, month, 1));
+    const todayStr = localDateStr(new Date());
+
+    let mIst = 0, mSoll = 0, cellsHtml = '';
+    for (let i = 0; i < 42; i++) {
+      const d = addDays(startGrid, i);
+      const ds = localDateStr(d);
+      const inMonth = d.getMonth() === month;
+      let cls = 'cal-cell';
+      let content = `<div class="cal-daynum">${d.getDate()}</div>`;
+
+      if (!inMonth) {
+        cls += ' cal-outside';
+      } else if (ds <= todayStr) {
+        const net = netMinutesForDate(ds);
+        const target = targetMinutesForDate(d);
+        const diff = net - target;
+        mIst += net;
+        mSoll += target;
+        if (target > 0 || net > 0) {
+          cls += diff > 0 ? ' cal-pos' : diff < 0 ? ' cal-neg' : ' cal-neutral';
+          const hoursLabel = net >= 60 ? `${(net / 60).toFixed(1)}h` : `${Math.round(net)}min`;
+          content += `<div class="cal-hours">${hoursLabel}</div>`;
+        }
+      }
+      cellsHtml += `<div class="${cls}" ${inMonth ? `onclick="goToDay('${ds}')"` : ''}>${content}</div>`;
+    }
+    document.getElementById('monatGrid').innerHTML = cellsHtml;
+
+    document.getElementById('monatIst').textContent = fmtHM(mIst);
+    document.getElementById('monatSoll').textContent = fmtHM(mSoll);
+    setDiffEl('monatDiff', mIst - mSoll);
+    const lastDay = new Date(year, month + 1, 0);
+    setDiffEl('monatKonto', cumulativeDiffUpTo(localDateStr(lastDay)));
+  }
+  function stepMonth(delta) {
+    selectedMonth = new Date(selectedMonth.getFullYear(), selectedMonth.getMonth() + delta, 1);
+    renderMonat();
+  }
+
+  // ── Einstellungen ────────────────────────────────────────────
+  function renderEinstellungen() {
+    document.getElementById('settingsWeeklyHours').value = settings.weekly_target_hours;
+  }
+  async function saveSettings() {
+    const val = parseFloat(document.getElementById('settingsWeeklyHours').value);
+    if (!val || val <= 0 || val > 168) { showToast('Bitte eine gültige Stundenzahl eingeben (1–168).'); return; }
+    const { error } = await sb.from('time_settings').upsert({ user_id: currentUser.id, weekly_target_hours: val, updated_at: nowIso() });
+    if (error) { showToast('Fehler: ' + error.message); return; }
+    settings.weekly_target_hours = val;
+    renderAll();
+    showToast('Einstellungen gespeichert');
+  }
+
+  // ── Edit Modal ───────────────────────────────────────────────
+  function openEditModal(type, id) {
+    const item = type === 'session' ? allSessions.find(s => String(s.id) === String(id)) : allPauses.find(p => String(p.id) === String(id));
+    if (!item) return;
+    if (!item.end_time) { showToast('Läuft noch — zuerst stoppen, um zu bearbeiten.'); return; }
+    editingType = type; editingId = id;
+    document.getElementById('editModalTitle').textContent = type === 'session' ? 'Session bearbeiten' : 'Pause bearbeiten';
+    document.getElementById('editStart').value = toLocalInputValue(item.start_time);
+    document.getElementById('editEnd').value = toLocalInputValue(item.end_time);
+    document.getElementById('editNote').value = item.note || '';
+    document.getElementById('editError').classList.remove('show');
+    document.getElementById('editModal').classList.add('show');
+  }
+  function closeEditModal() {
+    editingType = null; editingId = null;
+    document.getElementById('editModal').classList.remove('show');
+  }
+  async function saveEdit() {
+    const errEl = document.getElementById('editError');
+    const startVal = document.getElementById('editStart').value;
+    const endVal = document.getElementById('editEnd').value;
+    const note = document.getElementById('editNote').value.trim();
+    if (!startVal || !endVal) { errEl.textContent = 'Start und Ende erforderlich.'; errEl.classList.add('show'); return; }
+    const start = new Date(startVal);
+    const end = new Date(endVal);
+    if (end <= start) { errEl.textContent = 'Ende muss nach Start liegen.'; errEl.classList.add('show'); return; }
+
+    const table = editingType === 'session' ? 'time_sessions' : 'time_pauses';
+    const payload = { start_time: start.toISOString(), end_time: end.toISOString(), note };
+    if (editingType === 'session') payload.work_date = localDateStr(start);
+
+    const { error } = await sb.from(table).update(payload).eq('id', editingId).eq('user_id', currentUser.id);
+    if (error) { errEl.textContent = 'Fehler: ' + error.message; errEl.classList.add('show'); return; }
+    closeEditModal();
+    await loadAllData();
+    renderAll();
+    showToast('Gespeichert');
+  }
+
+  // ── Delete Modal ─────────────────────────────────────────────
+  function requestDeleteEntry(type, id) {
+    pendingDelete = { type, id };
+    document.getElementById('deleteConfirmText').textContent = type === 'session'
+      ? 'Diese Session inkl. aller zugehörigen Pausen wirklich löschen?'
+      : 'Diese Pause wirklich löschen?';
+    document.getElementById('deleteConfirmModal').classList.add('show');
+  }
+  function closeDeleteConfirm() {
+    pendingDelete = null;
+    document.getElementById('deleteConfirmModal').classList.remove('show');
+  }
+  async function confirmDeleteEntry() {
+    if (!pendingDelete) return;
+    const { type, id } = pendingDelete;
+    closeDeleteConfirm();
+    const table = type === 'session' ? 'time_sessions' : 'time_pauses';
+    const { error } = await sb.from(table).delete().eq('id', id).eq('user_id', currentUser.id);
+    if (error) { showToast('Löschen fehlgeschlagen: ' + error.message); return; }
+    await loadAllData();
+    renderAll();
+    showToast('Gelöscht');
+  }
+
+  // ── Manuelle Session ─────────────────────────────────────────
+  function openManualSessionModal() {
+    const dateStr = (currentTab === 'uebersicht' && uebersichtView === 'tag') ? selectedDayDate : localDateStr(new Date());
+    document.getElementById('msDate').value = dateStr;
+    document.getElementById('msStart').value = '';
+    document.getElementById('msEnd').value = '';
+    document.getElementById('msNote').value = '';
+    document.getElementById('msError').classList.remove('show');
+    document.getElementById('manualSessionModal').classList.add('show');
+  }
+  function closeManualSessionModal() { document.getElementById('manualSessionModal').classList.remove('show'); }
+  async function saveManualSession() {
+    const errEl = document.getElementById('msError');
+    const dateVal = document.getElementById('msDate').value;
+    const startVal = document.getElementById('msStart').value;
+    const endVal = document.getElementById('msEnd').value;
+    const note = document.getElementById('msNote').value.trim();
+    if (!dateVal || !startVal || !endVal) { errEl.textContent = 'Bitte Datum, Start und Ende ausfüllen.'; errEl.classList.add('show'); return; }
+    const start = new Date(`${dateVal}T${startVal}`);
+    const end = new Date(`${dateVal}T${endVal}`);
+    if (end <= start) { errEl.textContent = 'Ende muss nach Start liegen.'; errEl.classList.add('show'); return; }
+    const overlap = sessionsForDate(dateVal).some(s => {
+      const sStart = new Date(s.start_time), sEnd = s.end_time ? new Date(s.end_time) : new Date();
+      return start < sEnd && end > sStart;
+    });
+    if (overlap) { errEl.textContent = 'Überschneidet sich mit einer bestehenden Session an diesem Tag.'; errEl.classList.add('show'); return; }
+
+    const { error } = await sb.from('time_sessions').insert({
+      user_id: currentUser.id, work_date: dateVal, start_time: start.toISOString(), end_time: end.toISOString(), note
+    });
+    if (error) { errEl.textContent = 'Fehler: ' + error.message; errEl.classList.add('show'); return; }
+    closeManualSessionModal();
+    await loadAllData();
+    renderAll();
+    showToast('Eintrag gespeichert');
+  }
+
+  // ── Manuelle Pause ───────────────────────────────────────────
+  function setPauseMode(mode) {
+    pauseMode = mode;
+    document.querySelectorAll('#manualPauseModal .mode-toggle button').forEach(b => b.classList.toggle('active', b.dataset.mode === mode));
+    document.getElementById('mpZeitraumFields').style.display = mode === 'zeitraum' ? '' : 'none';
+    document.getElementById('mpDauerFields').style.display = mode === 'dauer' ? '' : 'none';
+  }
+  function openManualPauseModal() {
+    const dateStr = (currentTab === 'uebersicht' && uebersichtView === 'tag') ? selectedDayDate : localDateStr(new Date());
+    const daySessions = sessionsForDate(dateStr);
+    if (!daySessions.length) { showToast('Für diesen Tag existiert noch keine Session.'); return; }
+    const sel = document.getElementById('mpSession');
+    sel.innerHTML = daySessions.map(s => `<option value="${s.id}">${timeLabel(s.start_time)} – ${s.end_time ? timeLabel(s.end_time) : 'läuft…'}</option>`).join('');
+    sel.value = String(daySessions[daySessions.length - 1].id);
+    document.getElementById('mpStart').value = '';
+    document.getElementById('mpEnd').value = '';
+    document.getElementById('mpDuration').value = '';
+    setPauseMode('zeitraum');
+    document.getElementById('mpError').classList.remove('show');
+    document.getElementById('manualPauseModal').classList.add('show');
+  }
+  function closeManualPauseModal() { document.getElementById('manualPauseModal').classList.remove('show'); }
+  async function saveManualPause() {
+    const errEl = document.getElementById('mpError');
+    const sessionId = document.getElementById('mpSession').value;
+    const session = allSessions.find(s => String(s.id) === String(sessionId));
+    if (!session) { errEl.textContent = 'Bitte eine Session wählen.'; errEl.classList.add('show'); return; }
+    const sessionStart = new Date(session.start_time);
+    const sessionEnd = session.end_time ? new Date(session.end_time) : new Date();
+
+    let start, end;
+    if (pauseMode === 'zeitraum') {
+      const startVal = document.getElementById('mpStart').value;
+      const endVal = document.getElementById('mpEnd').value;
+      if (!startVal || !endVal) { errEl.textContent = 'Bitte Start und Ende ausfüllen.'; errEl.classList.add('show'); return; }
+      start = new Date(`${session.work_date}T${startVal}`);
+      end = new Date(`${session.work_date}T${endVal}`);
+      if (end <= start) { errEl.textContent = 'Ende muss nach Start liegen.'; errEl.classList.add('show'); return; }
+    } else {
+      const dur = parseInt(document.getElementById('mpDuration').value, 10);
+      if (!dur || dur <= 0) { errEl.textContent = 'Bitte eine gültige Dauer eingeben.'; errEl.classList.add('show'); return; }
+      start = new Date(sessionStart);
+      end = new Date(start.getTime() + dur * 60000);
+    }
+
+    if (start < sessionStart || end > sessionEnd) { errEl.textContent = 'Pause muss innerhalb der Session liegen.'; errEl.classList.add('show'); return; }
+    const overlap = pausesForSession(session.id).some(p => {
+      const pStart = new Date(p.start_time), pEnd = p.end_time ? new Date(p.end_time) : new Date();
+      return start < pEnd && end > pStart;
+    });
+    if (overlap) { errEl.textContent = 'Überschneidet sich mit einer bestehenden Pause.'; errEl.classList.add('show'); return; }
+
+    const { error } = await sb.from('time_pauses').insert({
+      user_id: currentUser.id, session_id: session.id, start_time: start.toISOString(), end_time: end.toISOString()
+    });
+    if (error) { errEl.textContent = 'Fehler: ' + error.message; errEl.classList.add('show'); return; }
+    closeManualPauseModal();
+    await loadAllData();
+    renderAll();
+    showToast('Pause gespeichert');
+  }
+
+  init();
+</script>
+</body>
+</html>
