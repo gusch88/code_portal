@@ -572,6 +572,16 @@
     document.getElementById('errorMsg').classList.remove('show');
   }
 
+  function allBundeslaenderCovered(entries) {
+    const totalBundeslaender = new Set(allCodes.map(c => c.bundesland));
+    if (!totalBundeslaender.size) return false;
+    const collected = new Set(entries.map(e => {
+      const codeData = allCodes.find(c => c.code === e.code);
+      return codeData ? codeData.bundesland : null;
+    }).filter(Boolean));
+    return collected.size >= totalBundeslaender.size;
+  }
+
   const ACHIEVEMENTS = [
     { id:'first', icon:'🎯', name:'Erstes Kennzeichen', desc:'1 Kennzeichen gesammelt', check:e=>e.length>=1 },
     { id:'five', icon:'🔥', name:'Auf der Jagd', desc:'5 Kennzeichen gesammelt', check:e=>e.length>=5 },
@@ -582,7 +592,7 @@
     { id:'twofifty', icon:'🏆', name:'Sammler 250', desc:'250 Kennzeichen gesammelt', check:e=>e.length>=250 },
     { id:'fivehundred', icon:'🚀', name:'Sammler 500', desc:'500 Kennzeichen gesammelt', check:e=>e.length>=500 },
     { id:'half', icon:'⭐', name:'Halbe Sammlung', desc:'Hälfte aller Kennzeichen gesammelt', check:e=>new Set(e.map(x=>x.code)).size>=Math.ceil(allCodes.length/2) },
-    { id:'allcodes', icon:'🌍', name:'Alle Kennzeichen', desc:'Alle 16 Bundesländer', check:e=>new Set(e.map(x=>x.code)).size>=allCodes.length },
+    { id:'allcodes', icon:'🌍', name:'Alle Bundesländer', desc:'Alle 16 Bundesländer', check:e=>allBundeslaenderCovered(e) },
   ];
 
   function getCurrentStreak(entries) {
