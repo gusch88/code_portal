@@ -178,6 +178,7 @@
   .code-bar-fill { height: 100%; background: linear-gradient(90deg, var(--accent), var(--accent2)); border-radius: 999px; }
   .code-count { font-family: 'DM Mono', monospace; font-size: 0.76rem; color: var(--accent); width: 22px; text-align: right; }
   .code-empty { color: var(--muted); font-size: 0.83rem; font-style: italic; }
+  .code-row.me { background: rgba(245,197,24,0.08); border-radius: 8px; padding: 4px 6px; margin: -4px -6px; }
 
   .toolbar { display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; align-items: center; }
   .search-input { flex: 1; min-width: 160px; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; color: var(--text); padding: 8px 13px; font-family: 'DM Mono', monospace; font-size: 0.88rem; outline: none; transition: border-color 0.2s; }
@@ -259,6 +260,20 @@
   .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.6); display: none; align-items: center; justify-content: center; z-index: 300; backdrop-filter: blur(4px); }
   .modal-overlay.show { display: flex; }
   .modal-content { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 28px; max-width: 420px; width: 90%; box-shadow: 0 24px 64px rgba(0,0,0,0.6); }
+  .modal-content.wide { max-width: 640px; max-height: 85vh; overflow-y: auto; }
+  .friend-row { display: flex; align-items: center; gap: 12px; background: var(--surface2); border: 1px solid var(--border); border-radius: 9px; padding: 9px 12px; }
+  .friend-name { font-size: 0.88rem; font-weight: 600; flex: 1; }
+  .friend-stat { font-size: 0.72rem; color: var(--muted); font-family: 'DM Mono', monospace; }
+  .friend-actions { display: flex; gap: 8px; }
+  .btn-mini { background: var(--surface); border: 1px solid var(--border); border-radius: 7px; padding: 6px 12px; font-family: 'Bebas Neue', sans-serif; font-size: 0.8rem; letter-spacing: 1px; color: var(--text); cursor: pointer; white-space: nowrap; }
+  .btn-mini:hover { border-color: var(--accent); color: var(--accent); }
+  .btn-mini.primary { background: var(--accent); color: #000; border-color: var(--accent); }
+  .btn-mini.primary:hover { background: var(--accent2); }
+  .btn-mini.danger:hover { border-color: var(--red); color: var(--red); }
+  .compare-stats-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .compare-stats-row .stat-card { min-width: 0; }
+  .compare-chip { background: var(--surface2); border: 1px solid var(--border); border-radius: 999px; padding: 5px 12px; font-size: 0.78rem; font-family: 'DM Mono', monospace; color: var(--text); line-height: 1; }
+  .compare-chip.both { color: var(--accent); border-color: rgba(245,197,24,0.35); }
   .modal-title { font-family: 'Bebas Neue', sans-serif; font-size: 1.3rem; letter-spacing: 2px; margin-bottom: 20px; }
   .modal-field { display: flex; flex-direction: column; gap: 5px; margin-bottom: 14px; }
   .modal-field label { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 1.5px; color: var(--muted); }
@@ -313,7 +328,7 @@
   <div class="nav-title"><span>KFZ</span>-Kennzeichen</div>
   <div class="pending-badge" id="pendingBadge" title="Wartet auf Synchronisierung"></div>
   <div class="conn-status" id="connStatus"><span class="conn-dot"></span><span id="connLabel">Online</span></div>
-  <div class="nav-user" id="navUser"></div>
+  <div class="nav-user" id="navUser" onclick="openProfileModal()" style="cursor:pointer;" title="Spielername ändern"></div>
 </nav>
 
 <!-- Quick-Add: immer sichtbar, unabhängig vom Tab -->
@@ -338,6 +353,7 @@
     <button class="tab-btn" data-tab="sammlung" onclick="setTab('sammlung')">Sammlung</button>
     <button class="tab-btn" data-tab="karte" onclick="setTab('karte')">Karte</button>
     <button class="tab-btn" data-tab="rangliste" onclick="setTab('rangliste')">Rangliste</button>
+    <button class="tab-btn" data-tab="freunde" onclick="setTab('freunde')">Freunde</button>
   </div>
 </div>
 
@@ -408,6 +424,44 @@
         <div class="code-ranking" id="codeRanking"></div>
       </div>
     </div>
+
+    <div class="section-block" style="margin-top:18px;">
+      <div class="section-title" style="display:flex; justify-content:space-between; align-items:baseline;">
+        <span>Bestenliste</span>
+        <span style="display:flex; gap:12px;">
+          <button class="link-btn" id="lbSortTotal" onclick="setLeaderboardSort('total_count')">Gesamt</button>
+          <button class="link-btn" id="lbSortCodes" onclick="setLeaderboardSort('distinct_codes')">Bundesländer</button>
+        </span>
+      </div>
+      <div class="code-ranking" id="leaderboardList"></div>
+    </div>
+  </div>
+
+  <!-- ═══ TAB: Freunde ═══ -->
+  <div class="tab-panel" id="panel-freunde">
+    <div class="section-block" id="usernameCta" style="display:none; margin-bottom:20px;">
+      <div class="section-title" style="margin-bottom:8px;">Spielername</div>
+      <p class="modal-text" style="margin-bottom:12px;">Lege einen Spielernamen fest, damit dich andere Sammler finden und erkennen können.</p>
+      <button class="btn-add-inline" onclick="openProfileModal()">Spielername festlegen</button>
+    </div>
+
+    <div class="section-block" style="margin-bottom:20px;">
+      <div class="section-title">Freund hinzufügen</div>
+      <div class="toolbar">
+        <input type="text" class="search-input" id="friendSearchInput" placeholder="🔍 Spielername suchen…" oninput="onFriendSearchInput()">
+      </div>
+      <div id="friendSearchResults" class="recent-list"></div>
+    </div>
+
+    <div class="section-block" id="incomingRequestsBlock" style="display:none; margin-bottom:20px;">
+      <div class="section-title">Anfragen</div>
+      <div id="incomingRequestsList" class="recent-list"></div>
+    </div>
+
+    <div class="section-block">
+      <div class="section-title">Meine Freunde</div>
+      <div id="friendsList" class="recent-list"></div>
+    </div>
   </div>
 
 </div>
@@ -438,6 +492,37 @@
   </div>
 </div>
 
+<div class="modal-overlay" id="usernameModal">
+  <div class="modal-content">
+    <div class="modal-title">Spielername</div>
+    <div class="modal-field">
+      <label>Dein Spielername</label>
+      <input type="text" id="usernameInput" placeholder="z.B. KennzeichenJäger" maxlength="24">
+    </div>
+    <div class="modal-error" id="usernameError"></div>
+    <div class="modal-buttons">
+      <button class="btn-modal btn-save" onclick="saveUsername()">Speichern</button>
+      <button class="btn-modal btn-cancel" onclick="closeUsernameModal()">Abbrechen</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="friendCompareModal">
+  <div class="modal-content wide">
+    <div class="modal-title" id="friendCompareTitle">Vergleich</div>
+    <div class="compare-stats-row" id="friendCompareStats"></div>
+    <div class="section-title" style="margin-top:18px;">Beide haben</div>
+    <div class="chips-row" id="compareBoth"></div>
+    <div class="section-title" style="margin-top:14px;">Nur du</div>
+    <div class="chips-row" id="compareOnlyMe"></div>
+    <div class="section-title" style="margin-top:14px;">Nur <span id="compareFriendNameLabel"></span></div>
+    <div class="chips-row" id="compareOnlyFriend"></div>
+    <div class="modal-buttons">
+      <button class="btn-modal btn-cancel" onclick="closeFriendCompareModal()">Schließen</button>
+    </div>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <script>
@@ -457,6 +542,13 @@
   let currentTab = 'uebersicht';
   let expandedChapters = new Set();
   let chaptersInitialized = false;
+
+  let myProfile = null;
+  let friendships = [];
+  let leaderboardData = [];
+  let leaderboardSort = 'total_count';
+  let friendSearchTimer = null;
+  let activeFriendCompare = null;
 
   const QUEUE_KEY = 'kfz_offline_queue_v1';
   const ENTRIES_CACHE_KEY = 'kfz_entries_cache_v1';
@@ -579,6 +671,9 @@
         setTimeout(() => map.invalidateSize(), 50);
       }
     }
+
+    if (tab === 'rangliste' && !leaderboardData.length) loadLeaderboard();
+    if (tab === 'freunde') loadFriendsData();
   }
 
   // ── Init ─────────────────────────────────────────────────────
@@ -596,6 +691,7 @@
     await loadCodes();
     await loadEntries();
     await loadMapData();
+    if (currentUser && navigator.onLine) await loadProfile();
 
     const savedTab = localStorage.getItem(TAB_KEY) || 'uebersicht';
     setTab(savedTab);
@@ -1303,7 +1399,298 @@
     t._toastTimeout = setTimeout(() => { t.classList.remove('show'); t._toastTimeout = null; t.onclick = null; }, duration);
   }
 
-  document.addEventListener('keydown', e => { if (e.key === 'Escape') { closeEditModal(); closeDeleteConfirm(); } });
+  function escapeHtml(str) {
+    return String(str).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  }
+
+  // ── Profil / Spielername ────────────────────────────────────
+  async function loadProfile() {
+    const { data, error } = await sb.from('profiles').select('id,username').eq('id', currentUser.id).single();
+    if (error || !data) return;
+    myProfile = data;
+    document.getElementById('navUser').textContent =
+      currentUser.email + (myProfile.username ? ' · ' + myProfile.username : '');
+    const needsUsername = !myProfile.username || myProfile.username.startsWith('Spieler-');
+    const cta = document.getElementById('usernameCta');
+    if (cta) cta.style.display = needsUsername ? 'block' : 'none';
+  }
+
+  function openProfileModal() {
+    if (!currentUser) return;
+    document.getElementById('usernameInput').value = (myProfile && myProfile.username) || '';
+    document.getElementById('usernameError').classList.remove('show');
+    document.getElementById('usernameModal').classList.add('show');
+  }
+
+  function closeUsernameModal() {
+    document.getElementById('usernameModal').classList.remove('show');
+  }
+
+  async function saveUsername() {
+    const errEl = document.getElementById('usernameError');
+    const username = document.getElementById('usernameInput').value.trim();
+
+    if (!navigator.onLine) { errEl.textContent = 'Offline nicht möglich.'; errEl.classList.add('show'); return; }
+    if (username.length < 3 || username.length > 24) { errEl.textContent = 'Der Name muss 3–24 Zeichen lang sein.'; errEl.classList.add('show'); return; }
+    if (username.includes('@')) { errEl.textContent = 'Der Name darf kein @ enthalten.'; errEl.classList.add('show'); return; }
+
+    const { error } = await sb.from('profiles').update({ username }).eq('id', currentUser.id);
+    if (error) {
+      errEl.textContent = error.code === '23505' ? 'Dieser Spielername ist bereits vergeben.' : 'Speichern fehlgeschlagen.';
+      errEl.classList.add('show');
+      return;
+    }
+    await loadProfile();
+    closeUsernameModal();
+    showToast('Spielername gespeichert!');
+  }
+
+  // ── Globale Bestenliste ──────────────────────────────────────
+  async function loadLeaderboard() {
+    const el = document.getElementById('leaderboardList');
+    if (!navigator.onLine) {
+      el.innerHTML = '<div class="code-empty">Für die Bestenliste wird eine Internetverbindung benötigt.</div>';
+      return;
+    }
+    const { data, error } = await sb.rpc('get_kennzeichen_leaderboard');
+    if (error) {
+      el.innerHTML = '<div class="code-empty">Bestenliste konnte nicht geladen werden.</div>';
+      return;
+    }
+    leaderboardData = data || [];
+    renderLeaderboard();
+  }
+
+  function setLeaderboardSort(field) {
+    leaderboardSort = field;
+    renderLeaderboard();
+  }
+
+  function renderLeaderboard() {
+    const el = document.getElementById('leaderboardList');
+    document.getElementById('lbSortTotal').style.color = leaderboardSort === 'total_count' ? 'var(--accent)' : '';
+    document.getElementById('lbSortCodes').style.color = leaderboardSort === 'distinct_codes' ? 'var(--accent)' : '';
+
+    if (!leaderboardData.length) {
+      el.innerHTML = '<div class="code-empty">Noch keine Einträge in der Bestenliste</div>';
+      return;
+    }
+    const ranking = [...leaderboardData].sort((a, b) => b[leaderboardSort] - a[leaderboardSort]);
+    const maxCount = Math.max(...ranking.map(r => r[leaderboardSort])) || 1;
+
+    el.innerHTML = ranking.map((row, i) => {
+      const isMe = currentUser && row.user_id === currentUser.id;
+      const safeName = escapeHtml(row.username);
+      return `<div class="code-row ${isMe ? 'me' : ''}">
+        <div class="code-rank">${i + 1}</div>
+        <div class="code-name" title="${safeName}">${safeName}${isMe ? ' (du)' : ''}</div>
+        <div class="code-bar-wrap"><div class="code-bar-fill" style="width:${(row[leaderboardSort] / maxCount) * 100}%"></div></div>
+        <div class="code-count">${row[leaderboardSort]}</div>
+      </div>`;
+    }).join('');
+  }
+
+  // ── Freunde ──────────────────────────────────────────────────
+  async function loadFriendsData() {
+    if (!currentUser) return;
+    if (!navigator.onLine) {
+      document.getElementById('friendsList').innerHTML = '<div class="empty-state"><p>Für Freunde wird eine Internetverbindung benötigt.</p></div>';
+      return;
+    }
+
+    const { data, error } = await sb.from('friendships')
+      .select('*')
+      .or(`requester_id.eq.${currentUser.id},addressee_id.eq.${currentUser.id}`);
+
+    if (error) {
+      document.getElementById('friendsList').innerHTML = '<div class="empty-state"><p>Freunde konnten nicht geladen werden.</p></div>';
+      return;
+    }
+
+    const rows = data || [];
+    const otherIds = [...new Set(rows.map(r => r.requester_id === currentUser.id ? r.addressee_id : r.requester_id))];
+    let profilesById = {};
+    if (otherIds.length) {
+      const { data: profs } = await sb.from('profiles').select('id,username').in('id', otherIds);
+      (profs || []).forEach(p => { profilesById[p.id] = p.username; });
+    }
+
+    friendships = rows.map(r => {
+      const isRequester = r.requester_id === currentUser.id;
+      const otherId = isRequester ? r.addressee_id : r.requester_id;
+      return { ...r, otherId, otherUsername: profilesById[otherId] || 'Unbekannt', isRequester };
+    });
+
+    renderFriendsPanel();
+  }
+
+  function renderFriendsPanel() {
+    const incoming = friendships.filter(f => f.status === 'pending' && !f.isRequester);
+    const outgoing = friendships.filter(f => f.status === 'pending' && f.isRequester);
+    const accepted = friendships.filter(f => f.status === 'accepted');
+
+    const incomingBlock = document.getElementById('incomingRequestsBlock');
+    incomingBlock.style.display = incoming.length ? 'block' : 'none';
+    document.getElementById('incomingRequestsList').innerHTML = incoming.map(f => `
+      <div class="friend-row">
+        <div class="friend-name">${escapeHtml(f.otherUsername)}</div>
+        <div class="friend-actions">
+          <button class="btn-mini primary" onclick="acceptFriendRequest(${f.id})">Annehmen</button>
+          <button class="btn-mini danger" onclick="declineFriendRequest(${f.id})">Ablehnen</button>
+        </div>
+      </div>`).join('');
+
+    const friendsEl = document.getElementById('friendsList');
+    const outgoingHtml = outgoing.map(f => `
+      <div class="friend-row">
+        <div class="friend-name">${escapeHtml(f.otherUsername)}</div>
+        <div class="friend-stat">Anfrage ausstehend</div>
+        <div class="friend-actions">
+          <button class="btn-mini danger" onclick="cancelFriendRequest(${f.id})">Zurückziehen</button>
+        </div>
+      </div>`).join('');
+    const acceptedHtml = accepted.map(f => `
+      <div class="friend-row">
+        <div class="friend-name">${escapeHtml(f.otherUsername)}</div>
+        <div class="friend-actions">
+          <button class="btn-mini primary" onclick="openFriendCompareModal('${f.otherId}')">Vergleichen</button>
+          <button class="btn-mini danger" onclick="removeFriend(${f.id})">Entfernen</button>
+        </div>
+      </div>`).join('');
+
+    const combined = outgoingHtml + acceptedHtml;
+    friendsEl.innerHTML = combined || '<div class="empty-state"><p>Noch keine Freunde — such oben nach einem Spielernamen!</p></div>';
+  }
+
+  async function onFriendSearchInput() {
+    clearTimeout(friendSearchTimer);
+    const query = document.getElementById('friendSearchInput').value.trim();
+    if (!query) { document.getElementById('friendSearchResults').innerHTML = ''; return; }
+    friendSearchTimer = setTimeout(() => searchUsers(query), 300);
+  }
+
+  async function searchUsers(query) {
+    const el = document.getElementById('friendSearchResults');
+    if (!navigator.onLine || !currentUser) return;
+
+    const { data, error } = await sb.from('profiles')
+      .select('id,username')
+      .ilike('username', query + '%')
+      .neq('id', currentUser.id)
+      .limit(10);
+
+    if (error) { el.innerHTML = ''; return; }
+
+    const knownIds = new Set(friendships.map(f => f.otherId));
+    const results = (data || []).filter(p => !knownIds.has(p.id));
+
+    if (!results.length) {
+      el.innerHTML = '<div class="code-empty">Keine Treffer</div>';
+      return;
+    }
+    el.innerHTML = results.map(p => `
+      <div class="friend-row">
+        <div class="friend-name">${escapeHtml(p.username)}</div>
+        <div class="friend-actions">
+          <button class="btn-mini primary" onclick="sendFriendRequest('${p.id}')">Anfrage senden</button>
+        </div>
+      </div>`).join('');
+  }
+
+  async function sendFriendRequest(targetId) {
+    const { error } = await sb.from('friendships').insert({ requester_id: currentUser.id, addressee_id: targetId });
+    if (error) {
+      showToast(error.code === '23505' ? 'Ihr seid bereits Freunde oder es gibt schon eine Anfrage.' : 'Anfrage konnte nicht gesendet werden.');
+      return;
+    }
+    document.getElementById('friendSearchInput').value = '';
+    document.getElementById('friendSearchResults').innerHTML = '';
+    await loadFriendsData();
+    showToast('Anfrage gesendet!');
+  }
+
+  async function acceptFriendRequest(id) {
+    const { error } = await sb.from('friendships').update({ status: 'accepted', updated_at: new Date().toISOString() }).eq('id', id);
+    if (error) { showToast('Annehmen fehlgeschlagen.'); return; }
+    await loadFriendsData();
+    showToast('Ihr seid jetzt Freunde! 🎉');
+  }
+
+  async function deleteFriendship(id, toastMsg) {
+    const { error } = await sb.from('friendships').delete().eq('id', id);
+    if (error) { showToast('Aktion fehlgeschlagen.'); return; }
+    await loadFriendsData();
+    if (toastMsg) showToast(toastMsg);
+  }
+
+  function declineFriendRequest(id) { deleteFriendship(id, 'Anfrage abgelehnt.'); }
+  function cancelFriendRequest(id) { deleteFriendship(id, 'Anfrage zurückgezogen.'); }
+  function removeFriend(id) { deleteFriendship(id, 'Freund entfernt.'); }
+
+  // ── Freundesvergleich im Detail ──────────────────────────────
+  async function openFriendCompareModal(friendId) {
+    if (!navigator.onLine) { showToast('Vergleich ist offline nicht möglich.'); return; }
+    const fs = friendships.find(f => f.otherId === friendId);
+    const friendUsername = fs ? fs.otherUsername : 'Unbekannt';
+    const { data, error } = await sb.from('kennzeichen').select('code,created_at').eq('user_id', friendId);
+    if (error) { showToast('Vergleich konnte nicht geladen werden.'); return; }
+
+    activeFriendCompare = { friendId, friendUsername, entries: data || [] };
+    document.getElementById('friendCompareTitle').textContent = `Vergleich mit ${friendUsername}`;
+    document.getElementById('compareFriendNameLabel').textContent = friendUsername;
+    renderFriendCompare();
+    document.getElementById('friendCompareModal').classList.add('show');
+  }
+
+  function closeFriendCompareModal() {
+    activeFriendCompare = null;
+    document.getElementById('friendCompareModal').classList.remove('show');
+  }
+
+  function renderFriendCompare() {
+    if (!activeFriendCompare) return;
+    const myCodes = new Set(entries.map(e => e.code));
+    const friendCodes = new Set(activeFriendCompare.entries.map(e => e.code));
+
+    const both = [...myCodes].filter(c => friendCodes.has(c)).sort();
+    const onlyMe = [...myCodes].filter(c => !friendCodes.has(c)).sort();
+    const onlyFriend = [...friendCodes].filter(c => !myCodes.has(c)).sort();
+
+    const codeLabel = code => {
+      const c = allCodes.find(c => c.code === code);
+      return c ? `${code} · ${c.name}` : code;
+    };
+
+    document.getElementById('compareBoth').innerHTML = both.length
+      ? both.map(c => `<span class="compare-chip both">${codeLabel(c)}</span>`).join('')
+      : '<span class="code-empty">Noch keine Überschneidung</span>';
+    document.getElementById('compareOnlyMe').innerHTML = onlyMe.length
+      ? onlyMe.map(c => `<span class="compare-chip">${codeLabel(c)}</span>`).join('')
+      : '<span class="code-empty">–</span>';
+    document.getElementById('compareOnlyFriend').innerHTML = onlyFriend.length
+      ? onlyFriend.map(c => `<span class="compare-chip">${codeLabel(c)}</span>`).join('')
+      : '<span class="code-empty">–</span>';
+
+    const myStreak = getCurrentStreak(entries);
+    const friendStreak = getCurrentStreak(activeFriendCompare.entries);
+    document.getElementById('friendCompareStats').innerHTML = `
+      <div class="section-block">
+        <div class="section-title">Du</div>
+        <div class="stats-bar">
+          <div class="stat-card"><div class="stat-value">${myCodes.size}</div><div class="stat-label">Kennzeichen</div></div>
+          <div class="stat-card"><div class="stat-value">${myStreak}</div><div class="stat-label">Serie (Tage)</div></div>
+        </div>
+      </div>
+      <div class="section-block">
+        <div class="section-title">${activeFriendCompare.friendUsername}</div>
+        <div class="stats-bar">
+          <div class="stat-card"><div class="stat-value">${friendCodes.size}</div><div class="stat-label">Kennzeichen</div></div>
+          <div class="stat-card"><div class="stat-value">${friendStreak}</div><div class="stat-label">Serie (Tage)</div></div>
+        </div>
+      </div>`;
+  }
+
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') { closeEditModal(); closeDeleteConfirm(); closeUsernameModal(); closeFriendCompareModal(); } });
   init();
 </script>
 </body>
