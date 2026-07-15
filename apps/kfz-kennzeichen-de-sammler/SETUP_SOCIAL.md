@@ -106,7 +106,11 @@ create policy "Freunde können Kennzeichen sehen"
     )
   );
 
--- 8. Aggregierte Bestenliste – gibt NUR Zähldaten zurück, keine einzelnen Kennzeichen-Zeilen
+-- 8. Test-Accounts-Markierung (damit man lokale Testuser nie wieder löschen muss)
+alter table profiles add column if not exists is_test boolean not null default false;
+
+-- 9. Aggregierte Bestenliste – gibt NUR Zähldaten zurück, keine einzelnen Kennzeichen-Zeilen
+--    Test-Accounts (is_test = true) werden ausgeschlossen, damit die Bestenliste sauber bleibt.
 create or replace function get_kennzeichen_leaderboard()
 returns table (
   user_id        uuid,
@@ -125,6 +129,7 @@ as $$
     count(distinct k.code)::bigint as distinct_codes
   from kennzeichen k
   left join profiles p on p.id = k.user_id
+  where coalesce(p.is_test, false) = false
   group by k.user_id, p.username
   order by total_count desc;
 $$;
@@ -138,4 +143,58 @@ grant execute on function get_kennzeichen_leaderboard() to authenticated;
 ```sql
 select count(*) from profiles where username like '%@%'; -- muss 0 sein
 select * from get_kennzeichen_leaderboard() limit 5;
+```
+
+## Update: Test-Accounts dauerhaft ausblenden
+
+Falls das SQL oben schon mal ausgeführt wurde (also Schritte 1–7 bereits existieren),
+reicht dieser Nachtrag — er ist idempotent und kann gefahrlos erneut laufen:
+
+```sql
+-- Spalte anlegen (falls noch nicht vorhanden)
+alter table profiles add column if not exists is_test boolean not null default false;
+
+-- Bestenliste-Funktion so ersetzen, dass Test-Accounts ausgeschlossen werden
+create or replace function get_kennzeichen_leaderboard()
+returns table (
+  user_id        uuid,
+  username       text,
+  total_count    bigint,
+  distinct_codes bigint
+)
+language sql
+security definer
+set search_path = public
+as $$
+  select
+    k.user_id,
+    coalesce(p.username, 'Unbekannt') as username,
+    count(*)::bigint as total_count,
+    count(distinct k.code)::bigint as distinct_codes
+  from kennzeichen k
+  left join profiles p on p.id = k.user_id
+  where coalesce(p.is_test, false) = false
+  group by k.user_id, p.username
+  order by total_count desc;
+$$;
+
+revoke all on function get_kennzeichen_leaderboard() from public;
+grant execute on function get_kennzeichen_leaderboard() to authenticated;
+
+-- Eigene Test-Accounts markieren (E-Mails anpassen!)
+update profiles set is_test = true where id in (
+  select id from auth.users where email in ('test1@example.com', 'test2@example.com')
+);
+```
+
+**Verhalten danach:**
+- Als `is_test = true` markierte Accounts tauchen in der globalen Bestenliste für **niemanden** mehr auf.
+- In der Freunde-Suche sind sie für normale (nicht-Test-) Accounts unsichtbar, aber Test-Accounts
+  können sich weiterhin gegenseitig finden — so lässt sich die Such-/Anfrage-Funktion beliebig oft
+  zwischen den beiden Testusern durchspielen, ohne dass echte Nutzer sie je zu sehen bekommen.
+- Löschen ist damit nicht mehr nötig; die Accounts können dauerhaft für lokale Tests bestehen bleiben.
+
+```sql
+-- Verifikation: sollten NICHT mehr in der Bestenliste auftauchen
+select * from get_kennzeichen_leaderboard();
 ```

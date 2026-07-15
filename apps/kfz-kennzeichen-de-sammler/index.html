@@ -1415,7 +1415,7 @@
 
   // ── Profil / Spielername ────────────────────────────────────
   async function loadProfile() {
-    const { data, error } = await sb.from('profiles').select('id,username').eq('id', currentUser.id).single();
+    const { data, error } = await sb.from('profiles').select('id,username,is_test').eq('id', currentUser.id).single();
     if (error || !data) return;
     myProfile = data;
     document.getElementById('navUser').textContent =
@@ -1583,11 +1583,15 @@
     const el = document.getElementById('friendSearchResults');
     if (!navigator.onLine || !currentUser) return;
 
-    const { data, error } = await sb.from('profiles')
+    let searchQuery = sb.from('profiles')
       .select('id,username')
       .ilike('username', query + '%')
       .neq('id', currentUser.id)
       .limit(10);
+    // Test-Accounts bleiben für echte Nutzer unsichtbar, sehen sich aber untereinander
+    // (damit man mit ihnen weiterhin die Freunde-Suche testen kann).
+    if (!myProfile || !myProfile.is_test) searchQuery = searchQuery.eq('is_test', false);
+    const { data, error } = await searchQuery;
 
     if (error) { el.innerHTML = ''; return; }
 
