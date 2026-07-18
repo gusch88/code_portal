@@ -1332,7 +1332,7 @@
 
   function renderRecentPreview() {
     const el = document.getElementById('recentPreview');
-    const recent = entries.slice(0, 3);
+    const recent = entries.slice(0, 10);
     if (!recent.length) {
       el.innerHTML = '<div class="empty-state" style="padding:24px 10px;"><div class="empty-icon" style="font-size:2rem;">🚗</div><p>Noch nichts erfasst — leg oben los!</p></div>';
       return;
