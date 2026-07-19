@@ -616,8 +616,8 @@
     { id:'first', icon:'🎯', name:'Erstes Kennzeichen', desc:'1 Kennzeichen gesammelt', check:e=>e.length>=1 },
     { id:'five', icon:'🔥', name:'Auf der Jagd', desc:'5 Kennzeichen gesammelt', check:e=>e.length>=5 },
     { id:'ten', icon:'🏅', name:'Zehn drauf', desc:'10 Kennzeichen gesammelt', check:e=>e.length>=10 },
-    { id:'streak3', icon:'🔥', name:'3-Tage-Serie', desc:'3 Tage hintereinander Einträge', check:e=>getCurrentStreak(e)>=3 },
-    { id:'streak7', icon:'⚡️', name:'7-Tage-Serie', desc:'7 Tage hintereinander Einträge', check:e=>getCurrentStreak(e)>=7 },
+    { id:'streak3', icon:'🔥', name:'3-Tage-Serie', desc:'3 Tage hintereinander Einträge', check:e=>getLongestStreak(e)>=3 },
+    { id:'streak7', icon:'⚡️', name:'7-Tage-Serie', desc:'7 Tage hintereinander Einträge', check:e=>getLongestStreak(e)>=7 },
     { id:'hundred', icon:'🎉', name:'Hundert erreicht', desc:'100 Kennzeichen gesammelt', check:e=>e.length>=100 },
     { id:'twofifty', icon:'🏆', name:'Sammler 250', desc:'250 Kennzeichen gesammelt', check:e=>e.length>=250 },
     { id:'fivehundred', icon:'🚀', name:'Sammler 500', desc:'500 Kennzeichen gesammelt', check:e=>e.length>=500 },
@@ -636,6 +636,22 @@
       if (days.has(d.toDateString())) streak++; else break;
     }
     return streak;
+  }
+
+  // Längste je erreichte Tage-Serie (nicht nur die aktuell laufende) —
+  // damit bleiben Serien-Achievements erhalten, auch wenn die Serie später abreißt.
+  function getLongestStreak(entries) {
+    if (!entries || !entries.length) return 0;
+    const dayTimes = Array.from(new Set(entries.map(e => new Date(e.created_at).toDateString())))
+      .map(d => new Date(d).getTime())
+      .sort((a, b) => a - b);
+    let longest = 1, current = 1;
+    const oneDay = 24 * 60 * 60 * 1000;
+    for (let i = 1; i < dayTimes.length; i++) {
+      current = (dayTimes[i] - dayTimes[i - 1] === oneDay) ? current + 1 : 1;
+      if (current > longest) longest = current;
+    }
+    return longest;
   }
 
   if ('serviceWorker' in navigator) {
