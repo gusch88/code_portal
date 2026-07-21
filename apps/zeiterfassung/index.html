@@ -173,6 +173,18 @@
   .mode-toggle button { background: none; border: none; color: var(--muted); padding: 6px 14px; border-radius: 7px; font-size: 0.78rem; font-weight: 600; cursor: pointer; font-family: 'DM Sans', sans-serif; transition: all 0.15s; }
   .mode-toggle button.active { background: var(--accent); color: #000; }
 
+  .location-banner {
+    display: none; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;
+    background: var(--surface2); border: 1px solid var(--accent); border-radius: 12px;
+    padding: 14px 18px; margin-bottom: 20px; font-size: 0.85rem;
+  }
+  .location-banner.show { display: flex; }
+  .location-banner button {
+    background: var(--accent); color: #000; border: none; border-radius: 8px; padding: 8px 18px;
+    font-family: 'Bebas Neue', sans-serif; font-size: 0.9rem; letter-spacing: 1.5px; cursor: pointer;
+  }
+  .location-banner button:hover { background: var(--accent2); }
+
   .toast { position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%) translateY(70px); background: var(--accent); color: #000; padding: 11px 24px; border-radius: 999px; font-family: 'Bebas Neue', sans-serif; font-size: 0.95rem; letter-spacing: 2px; z-index: 999; transition: transform 0.3s; white-space: nowrap; }
   .toast.show { transform: translateX(-50%) translateY(0); }
 
@@ -207,6 +219,7 @@
 
   <!-- ═══ TAB: Timer ═══ -->
   <div class="tab-panel active" id="panel-timer">
+    <div class="location-banner" id="locationBanner"></div>
     <div class="section-block timer-card">
       <div class="timer-display" id="timerDisplay">00:00:00</div>
       <div class="timer-status" id="timerStatusLabel"></div>
@@ -321,7 +334,20 @@
         <input type="number" id="settingsWeeklyHours" min="1" max="168" step="0.5">
       </div>
       <button class="btn-save-settings" onclick="saveSettings()">Speichern</button>
-      <div class="settings-hint">📍 Automatischer Timer-Start per Standort ist als nächste Ausbaustufe geplant.</div>
+    </div>
+
+    <div class="section-block">
+      <div class="section-title">Standort</div>
+      <div class="settings-hint" id="workLocationInfo" style="margin-top:0;"></div>
+      <div class="settings-field">
+        <label>Radius (Meter)</label>
+        <input type="number" id="settingsWorkRadius" min="20" max="2000" step="10">
+      </div>
+      <div class="btn-link-row">
+        <button class="btn-small" onclick="saveWorkLocation()">📍 Aktuellen Standort als Arbeitsort speichern</button>
+        <button class="btn-small" onclick="clearWorkLocation()">Entfernen</button>
+      </div>
+      <div class="settings-hint">Solange der Timer-Tab offen ist, prüft die App deinen Standort und schlägt vor, den Timer zu starten bzw. zu stoppen.</div>
     </div>
   </div>
 
@@ -430,6 +456,10 @@
   let pendingDelete = null;
   let pauseMode = 'zeitraum';
   let runningNoteTimer = null;
+
+  let workLocation = null; // { lat, lon, radius_m }
+  let lastKnownPosition = null; // { lat, lon, ts }
+  const LOCATION_CACHE_MS = 2 * 60 * 1000;
 
   // ── Zeit-Helfer ──────────────────────────────────────────────
   function nowIso() { return new Date().toISOString(); }
@@ -609,6 +639,9 @@
     settings = settRes.data || { weekly_target_hours: 40 };
     runningSession = allSessions.find(s => !s.end_time) || null;
     runningPause = runningSession ? (allPauses.find(p => String(p.session_id) === String(runningSession.id) && !p.end_time) || null) : null;
+    workLocation = (settings.work_lat != null && settings.work_lon != null)
+      ? { lat: settings.work_lat, lon: settings.work_lon, radius_m: settings.work_radius_m || 150 }
+      : null;
   }
 
   // ── Timer-Tab ────────────────────────────────────────────────
@@ -637,6 +670,7 @@
     }
     updateLiveDisplay();
     renderTodayList();
+    checkLocationSuggestion();
   }
 
   function updateLiveDisplay() {
@@ -650,6 +684,92 @@
     if (currentTab === 'uebersicht' && uebersichtView === 'tag' && selectedDayDate === localDateStr(new Date())) {
       renderTag();
     }
+    if (currentTab === 'timer' && workLocation) checkLocationSuggestion();
+  }
+
+  // ── Standort-Vorschlag: Timer-Start/-Stopp am Arbeitsort ──────
+  function haversineMeters(lat1, lon1, lat2, lon2) {
+    const R = 6371000;
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLon = (lon2 - lon1) * Math.PI / 180;
+    const a = Math.sin(dLat / 2) ** 2 +
+      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLon / 2) ** 2;
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  }
+
+  function checkLocationSuggestion() {
+    const banner = document.getElementById('locationBanner');
+    if (!banner) return;
+    if (!workLocation || !navigator.geolocation) { banner.classList.remove('show'); return; }
+
+    const cacheFresh = lastKnownPosition && (Date.now() - lastKnownPosition.ts < LOCATION_CACHE_MS);
+    if (cacheFresh) { renderLocationBanner(lastKnownPosition); return; }
+
+    navigator.geolocation.getCurrentPosition(
+      pos => {
+        lastKnownPosition = { lat: pos.coords.latitude, lon: pos.coords.longitude, ts: Date.now() };
+        renderLocationBanner(lastKnownPosition);
+      },
+      () => { banner.classList.remove('show'); },
+      { enableHighAccuracy: false, timeout: 10000, maximumAge: 120000 }
+    );
+  }
+
+  function renderLocationBanner(pos) {
+    const banner = document.getElementById('locationBanner');
+    if (!banner || !workLocation) return;
+    const dist = Math.round(haversineMeters(pos.lat, pos.lon, workLocation.lat, workLocation.lon));
+    const nearby = dist <= workLocation.radius_m;
+
+    if (nearby && !runningSession) {
+      banner.innerHTML = `<span>📍 Du bist am Arbeitsort (${dist} m entfernt) — Timer starten?</span><button onclick="toggleWorkTimer()">Start</button>`;
+      banner.classList.add('show');
+    } else if (!nearby && runningSession) {
+      banner.innerHTML = `<span>📍 Du hast den Arbeitsort verlassen (${dist} m entfernt) — Timer stoppen?</span><button onclick="toggleWorkTimer()">Stop</button>`;
+      banner.classList.add('show');
+    } else {
+      banner.classList.remove('show');
+    }
+  }
+
+  function saveWorkLocation() {
+    if (!navigator.geolocation) { showToast('Standort wird von diesem Gerät nicht unterstützt.'); return; }
+    const radius = parseInt(document.getElementById('settingsWorkRadius').value, 10) || 150;
+    if (radius < 20 || radius > 2000) { showToast('Bitte einen Radius zwischen 20 und 2000 m wählen.'); return; }
+    showToast('📍 Ermittle Standort…');
+    navigator.geolocation.getCurrentPosition(async pos => {
+      const { error } = await sb.from('time_settings').upsert({
+        user_id: currentUser.id,
+        work_lat: pos.coords.latitude,
+        work_lon: pos.coords.longitude,
+        work_radius_m: radius,
+        updated_at: nowIso()
+      });
+      if (error) { showToast('Fehler: ' + error.message); return; }
+      settings.work_lat = pos.coords.latitude;
+      settings.work_lon = pos.coords.longitude;
+      settings.work_radius_m = radius;
+      workLocation = { lat: pos.coords.latitude, lon: pos.coords.longitude, radius_m: radius };
+      lastKnownPosition = null;
+      renderEinstellungen();
+      showToast('Arbeitsort gespeichert');
+    }, err => {
+      showToast(err.code === err.PERMISSION_DENIED ? 'Standortzugriff wurde verweigert.' : 'Standort konnte nicht ermittelt werden.');
+    }, { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 });
+  }
+
+  async function clearWorkLocation() {
+    const { error } = await sb.from('time_settings').upsert({
+      user_id: currentUser.id,
+      work_lat: null, work_lon: null, work_radius_m: 150,
+      updated_at: nowIso()
+    });
+    if (error) { showToast('Fehler: ' + error.message); return; }
+    settings.work_lat = null; settings.work_lon = null; settings.work_radius_m = 150;
+    workLocation = null;
+    document.getElementById('locationBanner').classList.remove('show');
+    renderEinstellungen();
+    showToast('Arbeitsort entfernt');
   }
 
   async function toggleWorkTimer() {
@@ -887,6 +1007,11 @@
   // ── Einstellungen ────────────────────────────────────────────
   function renderEinstellungen() {
     document.getElementById('settingsWeeklyHours').value = settings.weekly_target_hours;
+    document.getElementById('settingsWorkRadius').value = settings.work_radius_m || 150;
+    const info = document.getElementById('workLocationInfo');
+    info.textContent = workLocation
+      ? `Arbeitsort gespeichert: ${workLocation.lat.toFixed(5)}, ${workLocation.lon.toFixed(5)} · Radius ${workLocation.radius_m} m`
+      : 'Noch kein Arbeitsort hinterlegt.';
   }
   async function saveSettings() {
     const val = parseFloat(document.getElementById('settingsWeeklyHours').value);
