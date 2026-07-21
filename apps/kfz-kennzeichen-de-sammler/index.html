@@ -360,6 +360,7 @@
     <div class="error-msg" id="errorMsg"></div>
     <div class="code-hint" id="codeHint"></div>
     <div class="chips-row" id="chipsRow"></div>
+    <div class="chips-row" id="nearbyRow"></div>
   </div>
 </div>
 
@@ -585,6 +586,11 @@
   const CODES_CACHE_KEY = 'kfz_codes_cache_v1';
   const TAB_KEY = 'kfz_active_tab_v1';
   const CHIPS_RANDOM_COUNT = 10;
+  const NEARBY_COUNT = 8;
+  let codeLocations = null;
+  let userLocation = null;
+  let nearbyState = 'idle'; // idle | loading | success | error
+  let nearbyErrorMsg = '';
   const ERROR_MSG_DURATION = 10000;
   let isSyncing = false;
   let errorMsgTimer = null;
@@ -839,6 +845,122 @@
 
   function kfzList(feature) {
     return (feature.properties.KFZ || '').trim().split(/\s+/).filter(Boolean);
+  }
+
+  // ── Standort-Vorschläge: Kennzeichen in der Nähe, die noch fehlen ──
+  function ringCentroid(ring) {
+    let lon = 0, lat = 0;
+    ring.forEach(([rLon, rLat]) => { lon += rLon; lat += rLat; });
+    return { lat: lat / ring.length, lon: lon / ring.length };
+  }
+
+  function featureCentroid(feature) {
+    const geom = feature.geometry;
+    if (!geom) return null;
+    if (geom.type === 'Polygon') return ringCentroid(geom.coordinates[0]);
+    if (geom.type === 'MultiPolygon') {
+      const centroids = geom.coordinates.map(poly => ringCentroid(poly[0]));
+      return {
+        lat: centroids.reduce((s, c) => s + c.lat, 0) / centroids.length,
+        lon: centroids.reduce((s, c) => s + c.lon, 0) / centroids.length
+      };
+    }
+    return null;
+  }
+
+  function getCodeLocations() {
+    if (codeLocations) return codeLocations;
+    if (!kreiseGeoJSON) return null;
+    codeLocations = new Map();
+    kreiseGeoJSON.features.forEach(feature => {
+      const codes = kfzList(feature);
+      const centroid = featureCentroid(feature);
+      if (!codes.length || !centroid) return;
+      codes.forEach(code => {
+        if (!codeLocations.has(code)) codeLocations.set(code, []);
+        codeLocations.get(code).push(centroid);
+      });
+    });
+    return codeLocations;
+  }
+
+  function haversineKm(lat1, lon1, lat2, lon2) {
+    const R = 6371;
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLon = (lon2 - lon1) * Math.PI / 180;
+    const a = Math.sin(dLat / 2) ** 2 +
+      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLon / 2) ** 2;
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  }
+
+  function requestNearby() {
+    if (!navigator.geolocation) {
+      nearbyState = 'error';
+      nearbyErrorMsg = 'Standort wird von diesem Gerät nicht unterstützt.';
+      renderNearbyChips();
+      return;
+    }
+    nearbyState = 'loading';
+    renderNearbyChips();
+    navigator.geolocation.getCurrentPosition(
+      pos => {
+        userLocation = { lat: pos.coords.latitude, lon: pos.coords.longitude };
+        nearbyState = 'success';
+        renderNearbyChips();
+      },
+      err => {
+        nearbyState = 'error';
+        nearbyErrorMsg = err.code === err.PERMISSION_DENIED
+          ? 'Standortzugriff wurde verweigert.'
+          : 'Standort konnte nicht ermittelt werden.';
+        renderNearbyChips();
+      },
+      { enableHighAccuracy: false, timeout: 10000, maximumAge: 300000 }
+    );
+  }
+
+  function renderNearbyChips() {
+    const el = document.getElementById('nearbyRow');
+    if (!el) return;
+
+    if (nearbyState === 'loading') {
+      el.innerHTML = `<span class="chips-label">📍 Suche Standort…</span>`;
+      return;
+    }
+    if (nearbyState === 'error') {
+      el.innerHTML = `<span class="chips-label" style="color:var(--red)">${nearbyErrorMsg}</span>` +
+        `<button class="chip" onclick="requestNearby()">🔄 Erneut versuchen</button>`;
+      return;
+    }
+    if (nearbyState !== 'success' || !userLocation) {
+      if (!navigator.geolocation) { el.innerHTML = ''; return; }
+      el.innerHTML = `<button class="chip" onclick="requestNearby()">📍 Kennzeichen in der Nähe finden</button>`;
+      return;
+    }
+
+    const locations = getCodeLocations();
+    if (!locations) { el.innerHTML = `<span class="chips-label">📍 Lade Kartendaten…</span>`; return; }
+
+    const have = new Set(entries.map(e => e.code));
+    const withDist = allCodes
+      .filter(c => !have.has(c.code) && locations.has(c.code))
+      .map(c => ({ ...c, dist: Math.min(...locations.get(c.code).map(loc => haversineKm(userLocation.lat, userLocation.lon, loc.lat, loc.lon))) }))
+      .sort((a, b) => a.dist - b.dist)
+      .slice(0, NEARBY_COUNT);
+
+    if (!withDist.length) {
+      el.innerHTML = `<span class="chips-label">🎉 Alle Kennzeichen in deiner Nähe schon gesammelt!</span>` +
+        `<button class="chip" onclick="requestNearby()">🔄</button>`;
+      return;
+    }
+
+    let html = `<span class="chips-label">📍 In deiner Nähe:</span>`;
+    html += withDist.map(c => {
+      const title = `${c.name} (${c.bundesland}) — ca. ${Math.round(c.dist)} km entfernt`;
+      return `<button class="chip" onclick="quickAdd('${c.code}')" title="${title}">${c.code} · ${Math.round(c.dist)}km</button>`;
+    }).join('');
+    html += `<button class="chip" onclick="requestNearby()" title="Standort aktualisieren">🔄</button>`;
+    el.innerHTML = html;
   }
 
   function collectionState(feature) {
@@ -1544,6 +1666,7 @@
     renderCodeRanking();
     renderSammlungAlbum();
     renderChips();
+    renderNearbyChips();
     renderMap();
     updateCodeHint();
   }
