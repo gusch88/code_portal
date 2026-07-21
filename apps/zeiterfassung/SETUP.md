@@ -39,20 +39,12 @@ create table if not exists time_pauses (
 
 create index if not exists idx_pauses_user_session on time_pauses(user_id, session_id);
 
--- 3. Einstellungen pro Nutzer (wöchentliche Soll-Stunden, optionaler Arbeitsort)
+-- 3. Einstellungen pro Nutzer (wöchentliche Soll-Stunden)
 create table if not exists time_settings (
   user_id              uuid references auth.users(id) on delete cascade primary key,
   weekly_target_hours  numeric(5,2) not null default 40,
-  work_lat             numeric(9,6),
-  work_lon             numeric(9,6),
-  work_radius_m        integer not null default 150,
   updated_at           timestamptz default now()
 );
-
--- Migration für bereits bestehende Installationen (falls time_settings schon existiert):
--- alter table time_settings add column if not exists work_lat numeric(9,6);
--- alter table time_settings add column if not exists work_lon numeric(9,6);
--- alter table time_settings add column if not exists work_radius_m integer not null default 150;
 
 -- 4. Abwesenheiten (Krank / Urlaub) — zählen nicht als Arbeitstag
 create table if not exists time_absences (
@@ -119,4 +111,4 @@ In der Tagesansicht (Übersicht → Tag) kann ein Tag als **Krank** oder **Urlau
 - **Kein Offline-Modus.** Die App braucht eine aktive Verbindung zu Supabase; anders als die KFZ-Kennzeichen-App gibt es keine Offline-Warteschlange.
 - **Sessions über Mitternacht** zählen komplett auf den Kalendertag, an dem sie gestartet wurden — keine Aufteilung auf zwei Tage.
 - **Rückwirkende Soll-Änderung:** Wird die wöchentliche Soll-Stundenzahl geändert, wirkt sich das auf alle historischen Tage aus (kein Snapshot pro Tag). Für ein persönliches Tool ist das beabsichtigt.
-- **Automatischer Start per Standort** (Geofencing): Im Tab „Einstellungen" kann der aktuelle Standort als Arbeitsort gespeichert werden (mit Radius in Metern). Solange der Timer-Tab offen ist, prüft die App in Abständen den Standort und schlägt vor, den Timer zu starten (Ankunft im Radius) bzw. zu stoppen (Verlassen des Radius). Echtes Hintergrund-Geofencing (auch bei geschlossener App) ist im Browser/PWA-Kontext nicht zuverlässig möglich.
+- **Automatischer Start per Standort** (Geofencing) ist nicht implementiert — mögliche Ausbaustufe für später.
