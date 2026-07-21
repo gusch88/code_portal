@@ -709,8 +709,8 @@
     const valueEl = document.getElementById(valueId);
     const labelEl = document.getElementById(labelId);
     valueEl.textContent = fmtHM(remainMinutes);
-    valueEl.classList.toggle('negative', remainMinutes > 0);
-    valueEl.classList.toggle('positive', remainMinutes <= 0);
+    valueEl.classList.toggle('negative', remainMinutes <= 0);
+    valueEl.classList.toggle('positive', remainMinutes > 0);
     labelEl.textContent = remainMinutes > 0 ? `${baseLabel} — noch offen` : `${baseLabel} — Überstunden`;
   }
 
