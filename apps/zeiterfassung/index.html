@@ -233,6 +233,19 @@
     </div>
 
     <div class="section-block">
+      <div class="summary-strip" style="margin-bottom:0;">
+        <div class="summary-card">
+          <div class="summary-value" id="timerTodayValue">–</div>
+          <div class="summary-label" id="timerTodayLabel">Heute</div>
+        </div>
+        <div class="summary-card">
+          <div class="summary-value" id="timerWeekValue">–</div>
+          <div class="summary-label" id="timerWeekLabel">Woche</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="section-block">
       <div class="list-header">
         <div class="section-title" style="margin-bottom:0">Heute</div>
         <div class="btn-link-row">
@@ -670,6 +683,7 @@
     }
     updateLiveDisplay();
     renderTodayList();
+    renderTimerSummary();
     checkLocationSuggestion();
   }
 
@@ -684,7 +698,42 @@
     if (currentTab === 'uebersicht' && uebersichtView === 'tag' && selectedDayDate === localDateStr(new Date())) {
       renderTag();
     }
-    if (currentTab === 'timer' && workLocation) checkLocationSuggestion();
+    if (currentTab === 'timer') {
+      renderTimerSummary();
+      if (workLocation) checkLocationSuggestion();
+    }
+  }
+
+  // ── Timer-Tab: Rest-/Überstunden heute & diese Woche ──────────
+  function setSummaryCard(valueId, labelId, remainMinutes, baseLabel) {
+    const valueEl = document.getElementById(valueId);
+    const labelEl = document.getElementById(labelId);
+    valueEl.textContent = fmtHM(remainMinutes);
+    valueEl.classList.toggle('negative', remainMinutes > 0);
+    valueEl.classList.toggle('positive', remainMinutes <= 0);
+    labelEl.textContent = remainMinutes > 0 ? `${baseLabel} — noch offen` : `${baseLabel} — Überstunden`;
+  }
+
+  function renderTimerSummary() {
+    const todayDs = localDateStr(new Date());
+    const todayTarget = targetMinutesForDate(todayDs);
+    const todayNet = netMinutesForDate(todayDs);
+    if (todayTarget === 0 && todayNet === 0) {
+      const absence = absenceForDate(todayDs);
+      document.getElementById('timerTodayValue').textContent = '–';
+      document.getElementById('timerTodayValue').classList.remove('positive', 'negative');
+      document.getElementById('timerTodayLabel').textContent = absence
+        ? `Heute — ${absence.type === 'krank' ? '🤒 Krank' : '🌴 Urlaub'}`
+        : 'Heute — frei';
+    } else {
+      setSummaryCard('timerTodayValue', 'timerTodayLabel', todayTarget - todayNet, 'Heute');
+    }
+
+    const monday = mondayOf(new Date());
+    let weekNet = 0;
+    for (let i = 0; i < 7; i++) weekNet += netMinutesForDate(localDateStr(addDays(monday, i)));
+    const weekTarget = settings.weekly_target_hours * 60;
+    setSummaryCard('timerWeekValue', 'timerWeekLabel', weekTarget - weekNet, 'Woche');
   }
 
   // ── Standort-Vorschlag: Timer-Start/-Stopp am Arbeitsort ──────
