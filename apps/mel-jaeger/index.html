@@ -123,27 +123,30 @@
   .toolbar { display: flex; gap: 10px; margin-bottom: 18px; flex-wrap: wrap; }
   .search-input { flex: 1; min-width: 160px; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; color: var(--text); padding: 8px 13px; font-family: 'DM Mono', monospace; font-size: 0.88rem; outline: none; transition: border-color 0.2s; }
   .search-input:focus { border-color: var(--accent); }
-  .filter-btn { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; color: var(--muted); padding: 8px 14px; font-family: 'DM Sans', sans-serif; font-size: 0.82rem; cursor: pointer; transition: all 0.15s; white-space: nowrap; }
-  .filter-btn.active { background: var(--accent); color: #000; border-color: var(--accent); }
 
   /* LIST */
   .list-header { font-family: 'Bebas Neue', sans-serif; font-size: 1.05rem; letter-spacing: 2px; color: var(--muted); margin-bottom: 10px; display: flex; align-items: center; justify-content: space-between; }
-  .entries-grid { display: flex; flex-direction: column; gap: 9px; }
-  .entry-card { background: var(--surface); border: 1px solid var(--border); border-radius: 11px; padding: 12px 16px; display: flex; align-items: center; gap: 14px; animation: slideIn 0.22s ease; transition: border-color 0.2s; }
-  .entry-card:hover { border-color: rgba(245,197,24,0.3); }
-  @keyframes slideIn { from{opacity:0;transform:translateY(-6px)} to{opacity:1;transform:translateY(0)} }
-  .entry-plate { flex-shrink: 0; }
-  .entry-plate .plate { min-height: 40px; padding: 3px 9px 3px 5px; }
-  .entry-plate .plate-eu-strip { min-height: 32px; width: 20px; }
-  .entry-plate .plate-text { font-size: 0.95rem; }
-  .entry-info { flex: 1; display: flex; flex-direction: column; gap: 2px; }
-  .entry-model { font-weight: 600; font-size: 0.9rem; }
-  .entry-meta { font-size: 0.75rem; color: var(--muted); display: flex; gap: 10px; flex-wrap: wrap; }
-  .entry-date { margin-left: auto; font-size: 0.72rem; color: var(--muted); font-family: 'DM Mono', monospace; white-space: nowrap; align-self: flex-start; }
-  .btn-delete { background: none; border: none; color: var(--muted); cursor: pointer; font-size: 1rem; padding: 4px 6px; border-radius: 5px; transition: color 0.15s, background 0.15s; }
-  .btn-delete:hover { color: var(--red); background: rgba(239,68,68,0.1); }
-  .empty-state { text-align: center; padding: 44px 20px; color: var(--muted); }
-  .empty-icon { font-size: 2.8rem; margin-bottom: 10px; opacity: 0.35; }
+
+  /* ALBUM */
+  .album { display: flex; flex-direction: column; gap: 18px; }
+  .album-block { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 16px 18px 18px; }
+  .album-block-header { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin-bottom: 12px; }
+  .album-block-title { font-family: 'Bebas Neue', sans-serif; font-size: 1.05rem; letter-spacing: 2px; color: var(--text); }
+  .album-block-count { font-family: 'DM Mono', monospace; font-size: 0.78rem; color: var(--muted); flex-shrink: 0; }
+  .album-progress-wrap { background: var(--surface2); border-radius: 999px; height: 5px; overflow: hidden; margin-bottom: 12px; }
+  .album-progress-fill { height: 100%; background: linear-gradient(90deg, var(--accent), var(--accent2)); border-radius: 999px; transition: width 0.5s cubic-bezier(.4,0,.2,1); }
+  .album-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(56px, 1fr)); gap: 6px; }
+  .album-slot { position: relative; aspect-ratio: 1; border-radius: 8px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; padding: 2px; overflow: hidden; }
+  .album-slot-empty { background: var(--surface2); border: 1px dashed var(--border); color: var(--muted); }
+  .album-slot-empty .album-slot-num { font-family: 'DM Mono', monospace; font-size: 0.68rem; opacity: 0.4; }
+  .album-slot-filled { background: var(--slot-bg, rgba(245,197,24,0.09)); border: 1px solid var(--slot-border, rgba(245,197,24,0.4)); cursor: pointer; transition: transform 0.12s, border-color 0.15s; animation: slideIn 0.22s ease; }
+  .album-slot-filled:hover { border-color: var(--accent); transform: scale(1.06); z-index: 2; }
+  .album-slot-filled .album-slot-num { font-family: 'DM Mono', monospace; font-weight: 700; font-size: 0.82rem; color: var(--slot-num, var(--accent)); line-height: 1; }
+  .album-slot-filled .album-slot-brand { font-size: 0.56rem; color: var(--slot-label, var(--muted)); opacity: 0.85; text-transform: uppercase; letter-spacing: 0.5px; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 0 3px; }
+  .album-slot-logo-wrap { width: 20px; height: 20px; border-radius: 5px; background: #fff; display: flex; align-items: center; justify-content: center; overflow: hidden; flex-shrink: 0; box-shadow: 0 1px 3px rgba(0,0,0,0.35); }
+  .album-slot-logo { width: 100%; height: 100%; object-fit: contain; padding: 2px; }
+  .album-slot.dimmed { opacity: 0.25; }
+  @keyframes slideIn { from{opacity:0;transform:scale(0.8)} to{opacity:1;transform:scale(1)} }
 
   /* MODAL */
   .modal-overlay {
@@ -174,6 +177,8 @@
   .btn-cancel:hover { border-color: var(--accent); color: var(--accent); }
   .modal-error { color: var(--red); font-size: 0.8rem; margin-top: 12px; display: none; }
   .modal-error.show { display: block; }
+  .btn-delete-modal { width: 100%; margin-top: 10px; background: none; border: none; color: var(--muted); font-size: 0.78rem; padding: 6px; cursor: pointer; transition: color 0.15s; }
+  .btn-delete-modal:hover { color: var(--red); }
 
   /* TOAST */
   .toast { position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%) translateY(70px); background: var(--accent); color: #000; padding: 11px 24px; border-radius: 999px; font-family: 'Bebas Neue', sans-serif; font-size: 0.95rem; letter-spacing: 2px; z-index: 999; transition: transform 0.3s cubic-bezier(.4,0,.2,1); white-space: nowrap; }
@@ -214,7 +219,7 @@
     <div class="form-row">
       <div class="field">
         <label>Nummer</label>
-        <input type="number" id="inputNum" placeholder="z.B. 142" min="1" max="9999">
+        <input type="number" id="inputNum" placeholder="z.B. 142" min="1" max="999">
       </div>
       <div class="field">
         <label>Marke</label>
@@ -245,17 +250,14 @@
 
   <!-- Toolbar -->
   <div class="toolbar">
-    <input type="text" class="search-input" id="searchInput" placeholder="🔍 Suchen…" oninput="renderList()">
-    <button class="filter-btn active" onclick="setFilter('all',this)">Alle</button>
-    <button class="filter-btn" onclick="setFilter('today',this)">Heute</button>
-    <button class="filter-btn" onclick="setFilter('recent',this)">Diese Woche</button>
+    <input type="text" class="search-input" id="searchInput" placeholder="🔍 Suchen…" oninput="renderAlbum()">
   </div>
 
   <div class="list-header">
-    <span>Gesammelte Kennzeichen</span>
+    <span>Sammelalbum · MEL · LE 1–999</span>
     <span id="listCount" style="font-size:0.82rem;color:var(--muted)"></span>
   </div>
-  <div class="entries-grid" id="entriesGrid"></div>
+  <div class="album" id="albumGrid"></div>
 </div>
 
 <!-- EDIT MODAL -->
@@ -264,7 +266,7 @@
     <div class="modal-title">MEL-Kennzeichen bearbeiten</div>
     <div class="modal-field">
       <label>Nummer</label>
-      <input type="number" id="modalNum" min="1" max="9999" placeholder="z.B. 142">
+      <input type="number" id="modalNum" min="1" max="999" placeholder="z.B. 142">
     </div>
     <div class="modal-field">
       <label>Marke</label>
@@ -281,6 +283,7 @@
       <button class="btn-modal btn-save" id="btnModalSave" onclick="saveEdit()">Speichern</button>
       <button class="btn-modal btn-cancel" onclick="closeEditModal()">Abbrechen</button>
     </div>
+    <button class="btn-delete-modal" id="btnModalDelete" onclick="deleteFromModal()">🗑 Kennzeichen löschen</button>
   </div>
 </div>
 
@@ -296,12 +299,91 @@
   let entries = [];
   let unlockedAchievements = [];
   let currentUser = null;
-  let currentFilter = 'all';
   let editingEntryId = null;
   let brandsList = [];
 
   // ── Car brands (fallback list, merged with brands already in the DB) ──
   const BRAND_NAMES = ['Audi','BMW','Citroën','Dacia','Fiat','Ford','Honda','Hyundai','Kia','Mazda','Mercedes','Mitsubishi','Nissan','Opel','Peugeot','Porsche','Renault','Seat','Skoda','Suzuki','Tesla','Toyota','Volvo','VW'];
+
+  // ── Brand name → logo file (downloaded once into logos/, so no
+  //    runtime network calls / rate limits are needed to show them) ──
+  const BRAND_LOGO_FILE = {
+    "VW": "logos/vw.png", "Opel": "logos/opel.png", "Mercedes": "logos/mercedes.png",
+    "Ford": "logos/ford.png", "Audi": "logos/audi.png", "BMW": "logos/bmw.png",
+    "Skoda": "logos/skoda.png", "Renault": "logos/renault.png", "Toyota": "logos/toyota.png",
+    "Peugeot": "logos/peugeot.png", "Fiat": "logos/fiat.png", "Hyundai": "logos/hyundai.png",
+    "SEAT": "logos/seat.png", "CUPRA": "logos/cupra.png", "Nissan": "logos/nissan.png",
+    "Mazda": "logos/mazda.png", "Citroen": "logos/citroen.png", "Citroën": "logos/citroen.png",
+    "VW Nutzfahrzeuge": "logos/vw.png", "KIA": "logos/kia.png", "Honda": "logos/honda.png",
+    "Suzuki": "logos/suzuki.png", "Volvo": "logos/volvo.png", "Mitsubishi": "logos/mitsubishi.png",
+    "smart": "logos/smart.png", "Dacia": "logos/dacia.png", "MINI": "logos/mini.png",
+    "Porsche": "logos/porsche.png", "Chevrolet": "logos/chevrolet.png", "Alfa Romeo": "logos/alfa-romeo.png",
+    "Subaru": "logos/subaru.png", "Land Rover": "logos/land-rover.png", "Jeep": "logos/jeep.png",
+    "Jaguar": "logos/jaguar.png", "MG": "logos/mg.png", "DS Automobiles": "logos/ds-automobiles.png",
+    "Lexus": "logos/lexus.png", "Abarth": "logos/abarth.png", "Alpine": "logos/alpine.png",
+    "Aston Martin": "logos/aston-martin.png", "Bentley": "logos/bentley.png", "ALPINA": "logos/alpina.png",
+    "Cadillac": "logos/cadillac.png", "Donkervoort": "logos/donkervoort.png", "e.GO Mobile": "logos/e-go-mobile.png",
+    "Elaris": "logos/elaris.png", "Sono Motors": "logos/sono-motors.png", "Ferrari": "logos/ferrari.png",
+    "Genesis": "logos/genesis.png", "Isuzu": "logos/isuzu.png", "Koenigsegg": "logos/koenigsegg.png",
+    "Lada": "logos/lada.png", "Lamborghini": "logos/lamborghini.png", "Lotus": "logos/lotus.png",
+    "Lynk & Co": "logos/lynk-co.png", "Maserati": "logos/maserati.png", "McLaren": "logos/mclaren.png",
+    "Morgan": "logos/morgan.png", "Pagani": "logos/pagani.png", "Rolls-Royce": "logos/rolls-royce.png",
+    "SsangYong": "logos/ssangyong.png", "Tesla": "logos/tesla.png", "Polestar": "logos/polestar.png",
+    "Daihatsu": "logos/daihatsu.png", "Dodge": "logos/dodge.png", "Chrysler": "logos/chrysler.png",
+    "Saab": "logos/saab.png", "Maybach": "logos/mercedes.png", "Iveco": "logos/iveco.png",
+    "Wartburg": "logos/wartburg.png", "Chery": "logos/chery.png", "NIO": "logos/nio.png",
+    "VinFast": "logos/vinfast.png", "Aixam": "logos/aixam.png", "Ligier": "logos/ligier.png",
+    "GMC": "logos/gmc.png", "Buick": "logos/buick.png", "Talbot": "logos/talbot.png",
+    "Rover": "logos/rover.png",
+  };
+
+  function brandLogoUrl(brand) {
+    return BRAND_LOGO_FILE[brand] || null;
+  }
+
+  // ── Color names → swatch (for album tile fill) ──────────────
+  const COLOR_MAP = {
+    schwarz:'#1a1a1a', black:'#1a1a1a',
+    weiß:'#f0f0f0', weiss:'#f0f0f0', white:'#f0f0f0',
+    silber:'#c7ccd6', silver:'#c7ccd6',
+    grau:'#838791', gray:'#838791', grey:'#838791',
+    rot:'#d6362f', red:'#d6362f',
+    blau:'#3468c0', blue:'#3468c0',
+    grün:'#2f9e44', gruen:'#2f9e44', green:'#2f9e44',
+    gelb:'#f5c518', yellow:'#f5c518',
+    orange:'#e8710a',
+    braun:'#6b4423', brown:'#6b4423',
+    beige:'#d8c7a1',
+    gold:'#c9a227',
+    lila:'#8d4bc4', violett:'#8d4bc4', purple:'#8d4bc4',
+    pink:'#e0559e', rosa:'#e0559e',
+    türkis:'#17a2a2', tuerkis:'#17a2a2', cyan:'#17a2a2', petrol:'#0f6f6f',
+    bronze:'#8c6239',
+  };
+
+  function getColorHex(colorStr) {
+    if (!colorStr) return null;
+    const key = colorStr.trim().toLowerCase();
+    if (COLOR_MAP[key]) return COLOR_MAP[key];
+    const found = Object.keys(COLOR_MAP).find(k => key.includes(k));
+    return found ? COLOR_MAP[found] : null;
+  }
+
+  function hexToRgb(hex) {
+    hex = hex.replace('#', '');
+    if (hex.length === 3) hex = hex.split('').map(c => c + c).join('');
+    const num = parseInt(hex.slice(0, 6), 16);
+    return [num >> 16 & 255, num >> 8 & 255, num & 255];
+  }
+
+  function slotColorStyle(hex) {
+    const [r, g, b] = hexToRgb(hex);
+    const lum = (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255;
+    const bg = `rgba(${r},${g},${b},0.8)`;
+    const border = lum < 0.15 ? 'rgba(255,255,255,0.3)' : hex;
+    const text = lum > 0.55 ? '#151515' : '#f5f5f5';
+    return `--slot-bg:${bg};--slot-border:${border};--slot-num:${text};--slot-label:${text};`;
+  }
 
   // ── Achievements ───────────────────────────────────────────
   const ACHIEVEMENTS = [
@@ -376,11 +458,11 @@
   async function loadEntries() {
     const { data, error } = await sb
       .from('mel_kennzeichen')
-      .select('*, brands(brand)')
+      .select('*, brands!brand_id(brand)')
       .eq('user_id', currentUser.id)
       .order('created_at', { ascending: false });
 
-    if (error) { console.error(error); return; }
+    if (error) { console.error(error); showToast('Fehler beim Laden: ' + error.message); return; }
     entries = data || [];
     unlockedAchievements = ACHIEVEMENTS.filter(a => a.check(entries)).map(a => a.id);
     renderAll();
@@ -394,8 +476,8 @@
     const errEl = document.getElementById('errorMsg');
     const btn   = document.getElementById('btnAdd');
 
-    if (!num || isNaN(num) || parseInt(num) < 1) {
-      errEl.textContent = 'Bitte eine gültige Nummer eingeben!';
+    if (!num || isNaN(num) || parseInt(num) < 1 || parseInt(num) > 999) {
+      errEl.textContent = 'Bitte eine gültige Nummer zwischen 1 und 999 eingeben!';
       errEl.classList.add('show'); return;
     }
     const numInt = parseInt(num);
@@ -414,7 +496,7 @@
       num: numInt,
       brand_id: brandId,
       color: color || null
-    }).select('*, brands(brand)').single();
+    }).select('*, brands!brand_id(brand)').single();
 
     btn.disabled = false; btn.textContent = '+ Kennzeichen Erfassen';
 
@@ -446,6 +528,14 @@
     renderAll();
   }
 
+  async function deleteFromModal() {
+    if (editingEntryId == null) return;
+    const id = editingEntryId;
+    closeEditModal();
+    await deleteEntry(id);
+    showToast('Kennzeichen gelöscht');
+  }
+
   // ── Edit entry modal ───────────────────────────────────────
   function openEditModal(id) {
     const entry = entries.find(e => e.id === id);
@@ -472,8 +562,8 @@
     const errEl = document.getElementById('modalError');
     const btn = document.getElementById('btnModalSave');
 
-    if (!num || isNaN(num) || parseInt(num) < 1) {
-      errEl.textContent = 'Bitte eine gültige Nummer eingeben!';
+    if (!num || isNaN(num) || parseInt(num) < 1 || parseInt(num) > 999) {
+      errEl.textContent = 'Bitte eine gültige Nummer zwischen 1 und 999 eingeben!';
       errEl.classList.add('show'); return;
     }
     const numInt = parseInt(num);
@@ -527,23 +617,9 @@
     }
   }
 
-  // ── Filter ─────────────────────────────────────────────────
-  function setFilter(f, btn) {
-    currentFilter = f;
-    document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-    renderList();
-  }
-
-  function getFiltered() {
-    const q = document.getElementById('searchInput').value.toLowerCase();
-    const now = new Date();
-    return entries.filter(e => {
-      if (currentFilter==='today' && new Date(e.created_at).toDateString()!==now.toDateString()) return false;
-      if (currentFilter==='recent' && (now-new Date(e.created_at))/86400000>7) return false;
-      if (q && !(e.num+' '+(e.brands?.brand||'')+' '+(e.color||'')).toLowerCase().includes(q)) return false;
-      return true;
-    });
+  // ── Helpers ────────────────────────────────────────────────
+  function escapeHtml(str) {
+    return String(str).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   }
 
   // ── Render ─────────────────────────────────────────────────
@@ -582,44 +658,57 @@
       </div>`).join('');
   }
 
-  function formatDate(iso) {
-    const d = new Date(iso);
-    if (d.toDateString()===new Date().toDateString())
-      return 'Heute '+d.toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'});
-    return d.toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit',year:'2-digit'});
-  }
+  function renderAlbum() {
+    const container = document.getElementById('albumGrid');
+    const q = document.getElementById('searchInput').value.trim().toLowerCase();
+    document.getElementById('listCount').textContent = entries.length+' Einträge';
 
-  function renderList() {
-    const grid = document.getElementById('entriesGrid');
-    const filtered = getFiltered();
-    document.getElementById('listCount').textContent = filtered.length+' Einträge';
-    if (!filtered.length) {
-      grid.innerHTML=`<div class="empty-state"><div class="empty-icon">🚗</div><p>Noch nichts hier.<br>Los geht's – MEL-Jagd!</p></div>`;
-      return;
-    }
-    grid.innerHTML = filtered.map(e=>`
-      <div class="entry-card">
-        <div class="entry-plate"><div class="plate">
-          <div class="plate-eu-strip">
-            <div class="plate-eu-stars" style="font-size:6px">★★★<br>★ ★<br>★★★</div>
-            <div class="plate-eu-d">D</div>
-          </div>
-          <div class="plate-text"><span class="region">MEL · LE</span> · ${e.num}</div>
-        </div></div>
-        <div class="entry-info">
-          <div class="entry-model">${[e.brands?.brand,e.color].filter(Boolean).join(' · ')||'–'}</div>
-          <div class="entry-meta">
-            ${e.brands?.brand?'<span>🏷 '+e.brands.brand+'</span>':''}
-            ${e.color?'<span>🎨 '+e.color+'</span>':''}
-          </div>
+    const byNum = {};
+    entries.forEach(e => { byNum[e.num] = e; });
+
+    let html = '';
+    for (let start = 1; start <= 999; start += 100) {
+      const end = Math.min(start + 99, 999);
+      const total = end - start + 1;
+      let filledCount = 0;
+      let slots = '';
+
+      for (let n = start; n <= end; n++) {
+        const e = byNum[n];
+        if (e) {
+          filledCount++;
+          const brand = e.brands?.brand || '';
+          const matches = !q || (n+' '+brand+' '+(e.color||'')).toLowerCase().includes(q);
+          const tooltip = escapeHtml([brand, e.color].filter(Boolean).join(' · ') || ('MEL · LE · '+n));
+          const colorHex = getColorHex(e.color);
+          const swatchStyle = colorHex ? ` style="${slotColorStyle(colorHex)}"` : '';
+          const logoUrl = brand ? brandLogoUrl(brand) : null;
+          const brandMarkup = logoUrl
+            ? `<div class="album-slot-logo-wrap"><img class="album-slot-logo" src="${logoUrl}" alt="${escapeHtml(brand)}" loading="lazy"></div>`
+            : (brand ? `<div class="album-slot-brand">${escapeHtml(brand)}</div>` : '');
+          slots += `<div class="album-slot album-slot-filled${matches?'':' dimmed'}"${swatchStyle} onclick="openEditModal(${e.id})" title="${tooltip}">
+            <div class="album-slot-num">${n}</div>
+            ${brandMarkup}
+          </div>`;
+        } else {
+          slots += `<div class="album-slot album-slot-empty"><div class="album-slot-num">${n}</div></div>`;
+        }
+      }
+
+      const pct = (filledCount / total * 100).toFixed(1);
+      html += `<div class="album-block">
+        <div class="album-block-header">
+          <div class="album-block-title">${start}–${end}</div>
+          <div class="album-block-count">${filledCount}/${total}</div>
         </div>
-        <div class="entry-date">${formatDate(e.updated_at || e.created_at)}</div>
-        <button class="btn-delete" onclick="openEditModal(${e.id})" title="Bearbeiten">✏️</button>
-        <button class="btn-delete" onclick="deleteEntry(${e.id})" title="Löschen">✕</button>
-      </div>`).join('');
+        <div class="album-progress-wrap"><div class="album-progress-fill" style="width:${pct}%"></div></div>
+        <div class="album-grid">${slots}</div>
+      </div>`;
+    }
+    container.innerHTML = html;
   }
 
-  function renderAll() { renderStats(); renderAchievements(); renderBrandRanking(); renderList(); }
+  function renderAll() { renderStats(); renderAchievements(); renderBrandRanking(); renderAlbum(); }
 
   function showToast(msg) {
     const t = document.getElementById('toast');
