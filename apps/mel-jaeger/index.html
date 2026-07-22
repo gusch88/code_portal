@@ -58,7 +58,8 @@
 
   /* INPUT */
   .input-section { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 22px; margin-bottom: 24px; }
-  .section-title { font-family: 'Bebas Neue', sans-serif; font-size: 1.15rem; letter-spacing: 2px; color: var(--muted); margin-bottom: 16px; }
+  .section-title { font-family: 'Bebas Neue', sans-serif; font-size: 1.15rem; letter-spacing: 2px; color: var(--muted); margin-bottom: 16px; display: flex; align-items: baseline; gap: 8px; }
+  .section-count { font-family: 'DM Mono', monospace; font-size: 0.72rem; letter-spacing: 0; text-transform: none; color: var(--accent); }
 
   /* PLATE */
   .plate-preview-row { display: flex; align-items: center; gap: 16px; margin-bottom: 20px; flex-wrap: wrap; }
@@ -91,32 +92,38 @@
   .section-block { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 20px 22px; }
 
   /* ACHIEVEMENTS */
-  .achievements-grid { display: flex; flex-direction: column; gap: 7px; margin-top: 4px; }
-  .badge { display: flex; align-items: center; gap: 10px; background: var(--surface2); border: 1px solid var(--border); border-radius: 9px; padding: 9px 11px; position: relative; overflow: hidden; transition: border-color 0.2s; }
+  .achievements-grid { display: flex; flex-direction: column; gap: 14px; margin-top: 4px; }
+  .achv-category-title { font-size: 0.66rem; text-transform: uppercase; letter-spacing: 1.2px; color: var(--muted); opacity: 0.75; margin-bottom: 6px; }
+  .achv-tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(122px, 1fr)); gap: 7px; }
+  .badge { display: flex; align-items: center; gap: 8px; background: var(--surface2); border: 1px solid var(--border); border-radius: 9px; padding: 8px 10px; position: relative; overflow: hidden; transition: border-color 0.2s; cursor: default; }
   .badge.unlocked { border-color: rgba(245,197,24,0.4); background: rgba(245,197,24,0.05); }
   .badge.unlocked::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px; background: linear-gradient(90deg, var(--accent), var(--accent2)); }
-  .badge-icon { font-size: 1.3rem; flex-shrink: 0; filter: grayscale(1) opacity(0.2); transition: filter 0.3s; }
+  .badge-icon { font-size: 1.1rem; flex-shrink: 0; filter: grayscale(1) opacity(0.25); transition: filter 0.3s; }
   .badge.unlocked .badge-icon { filter: none; }
   .badge-info { flex: 1; min-width: 0; }
-  .badge-name { font-size: 0.78rem; font-weight: 600; color: var(--muted); transition: color 0.2s; }
+  .badge-name { font-size: 0.74rem; font-weight: 600; color: var(--muted); transition: color 0.2s; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .badge.unlocked .badge-name { color: var(--text); }
-  .badge-desc { font-size: 0.67rem; color: var(--muted); margin-top: 1px; opacity: 0.6; }
-  .badge-check { font-size: 0.72rem; color: var(--accent); display: none; }
+  .badge-check { font-size: 0.7rem; color: var(--accent); flex-shrink: 0; display: none; }
   .badge.unlocked .badge-check { display: block; }
   @keyframes badgePop { 0%{transform:scale(1)} 40%{transform:scale(1.07)} 100%{transform:scale(1)} }
   .badge.just-unlocked { animation: badgePop 0.4s ease; }
 
   /* BRAND RANKING */
-  .brand-ranking { display: flex; flex-direction: column; gap: 8px; margin-top: 4px; }
-  .brand-row { display: flex; align-items: center; gap: 10px; }
-  .brand-rank { font-family: 'Bebas Neue', sans-serif; font-size: 1rem; color: var(--muted); width: 18px; text-align: center; flex-shrink: 0; }
-  .brand-row:nth-child(1) .brand-rank { color: #ffd700; }
-  .brand-row:nth-child(2) .brand-rank { color: #c0c0c0; }
-  .brand-row:nth-child(3) .brand-rank { color: #cd7f32; }
-  .brand-name { font-size: 0.82rem; font-weight: 600; width: 70px; flex-shrink: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .brand-bar-wrap { flex: 1; background: var(--surface2); border-radius: 999px; height: 6px; overflow: hidden; }
+  .brand-ranking { display: flex; flex-direction: column; gap: 6px; margin-top: 4px; }
+  .brand-row { display: flex; align-items: center; gap: 9px; padding: 4px 6px; border-radius: 8px; transition: background 0.2s; }
+  .brand-row.top3 { background: rgba(245,197,24,0.06); }
+  .brand-medal { font-size: 1rem; width: 20px; text-align: center; flex-shrink: 0; }
+  .brand-rank { font-family: 'Bebas Neue', sans-serif; font-size: 0.95rem; color: var(--muted); width: 20px; text-align: center; flex-shrink: 0; }
+  .brand-logo-wrap { width: 20px; height: 20px; border-radius: 5px; display: flex; align-items: center; justify-content: center; overflow: hidden; flex-shrink: 0; }
+  .brand-logo-wrap.has-logo { background: #fff; }
+  .brand-logo-wrap img { width: 100%; height: 100%; object-fit: contain; padding: 2px; }
+  .brand-logo-fallback { background: var(--surface2); border: 1px solid var(--border); font-family: 'DM Mono', monospace; font-weight: 700; font-size: 0.62rem; color: var(--muted); }
+  .brand-name { font-size: 0.82rem; font-weight: 600; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .brand-bar-wrap { flex: 1.4; background: var(--surface2); border-radius: 999px; height: 6px; overflow: hidden; }
   .brand-bar-fill { height: 100%; background: linear-gradient(90deg, var(--accent), var(--accent2)); border-radius: 999px; transition: width 0.5s cubic-bezier(.4,0,.2,1); }
-  .brand-count { font-family: 'DM Mono', monospace; font-size: 0.76rem; color: var(--accent); width: 22px; text-align: right; flex-shrink: 0; }
+  .brand-count { font-family: 'DM Mono', monospace; font-size: 0.76rem; color: var(--accent); width: 24px; text-align: right; flex-shrink: 0; }
+  .brand-share-ring { width: 22px; height: 22px; border-radius: 50%; flex-shrink: 0; background: conic-gradient(var(--accent) calc(var(--pct) * 1%), var(--surface2) 0); display: flex; align-items: center; justify-content: center; }
+  .brand-share-ring::after { content: ''; width: 13px; height: 13px; border-radius: 50%; background: var(--surface); }
   .brand-empty { color: var(--muted); font-size: 0.83rem; font-style: italic; }
 
   /* TOOLBAR */
@@ -239,11 +246,11 @@
   <!-- Gamification -->
   <div class="game-row">
     <div class="section-block">
-      <div class="section-title">Achievements</div>
+      <div class="section-title">Achievements <span class="section-count" id="achvCount"></span></div>
       <div class="achievements-grid" id="achievementsGrid"></div>
     </div>
     <div class="section-block">
-      <div class="section-title">Marken-Rangliste</div>
+      <div class="section-title">Marken-Rangliste <span class="section-count" id="brandCount"></span></div>
       <div class="brand-ranking" id="brandRanking"></div>
     </div>
   </div>
@@ -386,19 +393,29 @@
   }
 
   // ── Achievements ───────────────────────────────────────────
+  const REPDIGIT_NUMS = [11,22,33,44,55,66,77,88,99,111,222,333,444,555,666,777,888,999];
+  const ROUND_NUMS = [100,200,300,400,500,600,700,800,900];
+  const hasAll = (e, nums) => { const owned = new Set(e.map(x=>x.num)); return nums.every(n => owned.has(n)); };
+  const uniqueBrandCount = e => new Set(e.map(x=>x.brands?.brand).filter(Boolean)).size;
+  const maxBlockFill = e => {
+    const counts = {};
+    e.forEach(x => { const block = Math.floor((x.num - 1) / 100); counts[block] = (counts[block]||0) + 1; });
+    return Math.max(0, ...Object.entries(counts).map(([b,c]) => c / (b === '9' ? 99 : 100)));
+  };
+
   const ACHIEVEMENTS = [
-    { id:'first',   icon:'🎯', name:'Erster Fund',      desc:'1 Kennzeichen gesammelt',   check:e=>e.length>=1 },
-    { id:'five',    icon:'🔥', name:'Auf der Jagd',     desc:'5 Kennzeichen gesammelt',   check:e=>e.length>=5 },
-    { id:'ten',     icon:'🏅', name:'Zehn drauf',       desc:'10 Kennzeichen gesammelt',  check:e=>e.length>=10 },
-    { id:'twenty5', icon:'⭐', name:'Viertel-Hundert',  desc:'25 Kennzeichen gesammelt',  check:e=>e.length>=25 },
-    { id:'fifty',   icon:'🏆', name:'Halbe Hundert',    desc:'50 Kennzeichen gesammelt',  check:e=>e.length>=50 },
-    { id:'hundred', icon:'💯', name:'Die 100!',         desc:'100 Kennzeichen gesammelt', check:e=>e.length>=100 },
-    { id:'brand1',  icon:'🚗', name:'Erste Marke',      desc:'Eine Marke erfasst',        check:e=>new Set(e.map(x=>x.brands?.brand).filter(Boolean)).size>=1 },
-    { id:'brand5',  icon:'🚘', name:'Markenkenner',     desc:'5 verschiedene Marken',     check:e=>new Set(e.map(x=>x.brands?.brand).filter(Boolean)).size>=5 },
-    { id:'brand10', icon:'🏎️', name:'Marken-Experte',  desc:'10 verschiedene Marken',    check:e=>new Set(e.map(x=>x.brands?.brand).filter(Boolean)).size>=10 },
-    { id:'low',     icon:'1️⃣', name:'Niedrige Zahl',   desc:'Nummer unter 10 gefunden',  check:e=>e.some(x=>x.num<10) },
-    { id:'high',    icon:'🔢', name:'Große Zahl',       desc:'Nummer über 500 gefunden',  check:e=>e.some(x=>x.num>500) },
-    { id:'today3',  icon:'⚡', name:'Aktiv dabei',      desc:'3 Funde an einem Tag',      check:e=>{ const d={}; e.forEach(x=>{const k=x.created_at?.slice(0,10);if(k)d[k]=(d[k]||0)+1;}); return Object.values(d).some(v=>v>=3); }},
+    { id:'first',    icon:'🎯', name:'Erster Fund',          desc:'1 Kennzeichen gesammelt',           category:'Sammlung',        check:e=>e.length>=1 },
+    { id:'c25',      icon:'⭐', name:'Viertel-Hundert',      desc:'25 Kennzeichen gesammelt',          category:'Sammlung',        check:e=>e.length>=25 },
+    { id:'c100',     icon:'💯', name:'Die 100!',             desc:'100 Kennzeichen gesammelt',         category:'Sammlung',        check:e=>e.length>=100 },
+    { id:'c500',     icon:'🏆', name:'Halbes Tausend',       desc:'500 Kennzeichen gesammelt',         category:'Sammlung',        check:e=>e.length>=500 },
+    { id:'complete', icon:'👑', name:'Vollständige Sammlung', desc:'Alle 999 Kennzeichen von MEL · LE', category:'Sammlung',        check:e=>e.length>=999 },
+    { id:'brand5',   icon:'🚘', name:'Markenkenner',         desc:'5 verschiedene Marken',              category:'Marken',          check:e=>uniqueBrandCount(e)>=5 },
+    { id:'brand10',  icon:'🏎️', name:'Marken-Experte',       desc:'10 verschiedene Marken',             category:'Marken',          check:e=>uniqueBrandCount(e)>=10 },
+    { id:'brand20',  icon:'🌍', name:'Markensammler',        desc:'20 verschiedene Marken',             category:'Marken',          check:e=>uniqueBrandCount(e)>=20 },
+    { id:'block',    icon:'📦', name:'Block komplett',       desc:'Einen 100er-Block vollständig gefüllt', category:'Sammelalbum',  check:e=>maxBlockFill(e)>=1 },
+    { id:'schnaps',  icon:'🎰', name:'Schnapszahlen-Meister', desc:'Alle Schnapszahlen gesammelt (11, 22, … 999)', category:'Besondere Funde', check:e=>hasAll(e, REPDIGIT_NUMS) },
+    { id:'round',    icon:'🔵', name:'Hunderter-Sammler',    desc:'Alle vollen Hunderter gesammelt (100, 200, … 900)', category:'Besondere Funde', check:e=>hasAll(e, ROUND_NUMS) },
+    { id:'today3',   icon:'⚡', name:'Aktiv dabei',          desc:'3 Funde an einem Tag',              category:'Aktivität',       check:e=>{ const d={}; e.forEach(x=>{const k=x.created_at?.slice(0,10);if(k)d[k]=(d[k]||0)+1;}); return Object.values(d).some(v=>v>=3); }},
   ];
 
   // ── Init ───────────────────────────────────────────────────
@@ -632,30 +649,59 @@
   }
 
   function renderAchievements() {
-    document.getElementById('achievementsGrid').innerHTML = ACHIEVEMENTS.map(a => {
-      const u = unlockedAchievements.includes(a.id);
-      return `<div class="badge ${u?'unlocked':''}" id="badge-${a.id}">
-        <div class="badge-icon">${a.icon}</div>
-        <div class="badge-info"><div class="badge-name">${a.name}</div><div class="badge-desc">${a.desc}</div></div>
-        <div class="badge-check">✓</div>
-      </div>`;
-    }).join('');
+    document.getElementById('achvCount').textContent = `${unlockedAchievements.length} / ${ACHIEVEMENTS.length}`;
+
+    const categories = [];
+    ACHIEVEMENTS.forEach(a => {
+      let cat = categories.find(c => c.name === a.category);
+      if (!cat) { cat = { name: a.category, items: [] }; categories.push(cat); }
+      cat.items.push(a);
+    });
+
+    document.getElementById('achievementsGrid').innerHTML = categories.map(cat => `
+      <div class="achv-category">
+        <div class="achv-category-title">${cat.name}</div>
+        <div class="achv-tiles">
+          ${cat.items.map(a => {
+            const u = unlockedAchievements.includes(a.id);
+            return `<div class="badge ${u?'unlocked':''}" id="badge-${a.id}" title="${escapeHtml(a.desc)}">
+              <div class="badge-icon">${a.icon}</div>
+              <div class="badge-info"><div class="badge-name">${a.name}</div></div>
+              <div class="badge-check">✓</div>
+            </div>`;
+          }).join('')}
+        </div>
+      </div>`).join('');
   }
 
   function renderBrandRanking() {
     const el = document.getElementById('brandRanking');
     const counts = {};
     entries.forEach(e => { const b = e.brands?.brand; if(b) counts[b]=(counts[b]||0)+1; });
-    const sorted = Object.entries(counts).sort((a,b)=>b[1]-a[1]).slice(0,8);
+    const brandTotal = Object.keys(counts).length;
+    document.getElementById('brandCount').textContent = brandTotal ? `Top 10 von ${brandTotal} Marke${brandTotal===1?'':'n'}` : '';
+
+    const sorted = Object.entries(counts).sort((a,b)=>b[1]-a[1]).slice(0,10);
     if (!sorted.length) { el.innerHTML='<div class="brand-empty">Noch keine Marken erfasst.</div>'; return; }
     const max = sorted[0][1];
-    el.innerHTML = sorted.map(([brand,count],i)=>`
-      <div class="brand-row">
-        <div class="brand-rank">${i+1}</div>
-        <div class="brand-name">${brand}</div>
+    const medals = ['🥇','🥈','🥉'];
+    el.innerHTML = sorted.map(([brand,count],i)=>{
+      const pct = count / entries.length * 100;
+      const logoUrl = brandLogoUrl(brand);
+      const logoMarkup = logoUrl
+        ? `<div class="brand-logo-wrap has-logo"><img src="${logoUrl}" alt="" loading="lazy"></div>`
+        : `<div class="brand-logo-wrap brand-logo-fallback">${escapeHtml(brand.charAt(0).toUpperCase())}</div>`;
+      const rankMarkup = i < 3 ? `<div class="brand-medal">${medals[i]}</div>` : `<div class="brand-rank">${i+1}</div>`;
+      return `
+      <div class="brand-row ${i<3?'top3':''}">
+        ${rankMarkup}
+        ${logoMarkup}
+        <div class="brand-name">${escapeHtml(brand)}</div>
         <div class="brand-bar-wrap"><div class="brand-bar-fill" style="width:${(count/max*100).toFixed(1)}%"></div></div>
         <div class="brand-count">${count}</div>
-      </div>`).join('');
+        <div class="brand-share-ring" style="--pct:${pct.toFixed(1)}" title="${pct.toFixed(0)}% aller gesammelten Kennzeichen"></div>
+      </div>`;
+    }).join('');
   }
 
   function renderAlbum() {
