@@ -218,15 +218,13 @@
       </div>
       <div class="field">
         <label>Marke</label>
-        <select id="inputBrand" onchange="updateModels()">
+        <select id="inputBrand">
           <option value="">– Marke wählen –</option>
         </select>
       </div>
       <div class="field">
-        <label>Modell / Fabrikat</label>
-        <select id="inputModel" disabled>
-          <option value="">– erst Marke wählen –</option>
-        </select>
+        <label>Farbe</label>
+        <input type="text" id="inputColor" placeholder="z.B. Schwarz">
       </div>
     </div>
     <div class="error-msg" id="errorMsg"></div>
@@ -270,15 +268,13 @@
     </div>
     <div class="modal-field">
       <label>Marke</label>
-      <select id="modalBrand" onchange="updateModalModels()">
+      <select id="modalBrand">
         <option value="">– Marke wählen –</option>
       </select>
     </div>
     <div class="modal-field">
-      <label>Modell / Fabrikat</label>
-      <select id="modalModel">
-        <option value="">– Modell wählen –</option>
-      </select>
+      <label>Farbe</label>
+      <input type="text" id="modalColor" placeholder="z.B. Schwarz">
     </div>
     <div class="modal-error" id="modalError"></div>
     <div class="modal-buttons">
@@ -302,34 +298,10 @@
   let currentUser = null;
   let currentFilter = 'all';
   let editingEntryId = null;
+  let brandsList = [];
 
-  // ── Car data ───────────────────────────────────────────────
-  const CAR_DATA = {
-    'Audi':['A1','A3','A4','A5','A6','A7','A8','Q2','Q3','Q5','Q7','Q8','TT','R8','e-tron','Q4 e-tron'],
-    'BMW':['1er','2er','3er','4er','5er','6er','7er','8er','X1','X2','X3','X4','X5','X6','X7','M3','M5','Z4','i3','i4','iX'],
-    'Citroën':['C1','C3','C4','C5','Berlingo','C3 Aircross','C5 Aircross','SpaceTourer'],
-    'Dacia':['Sandero','Logan','Duster','Spring','Jogger','Bigster'],
-    'Fiat':['500','Panda','Punto','Tipo','Doblo','Ducato','500X','500L'],
-    'Ford':['Fiesta','Focus','Mondeo','Kuga','Puma','Mustang Mach-E','Explorer','Ranger','Transit','Tourneo'],
-    'Honda':['Jazz','Civic','Accord','CR-V','HR-V','e','ZR-V'],
-    'Hyundai':['i10','i20','i30','i40','Tucson','Santa Fe','Kona','Ioniq 5','Ioniq 6'],
-    'Kia':['Picanto','Rio','Ceed','Sportage','Sorento','Stonic','Niro','EV6','EV9'],
-    'Mazda':['Mazda2','Mazda3','Mazda6','CX-3','CX-5','CX-60','MX-5','MX-30'],
-    'Mercedes':['A-Klasse','B-Klasse','C-Klasse','E-Klasse','S-Klasse','CLA','CLS','GLA','GLB','GLC','GLE','GLS','EQA','EQC','EQS','Sprinter','Vito'],
-    'Mitsubishi':['Space Star','Eclipse Cross','Outlander','L200','ASX'],
-    'Nissan':['Micra','Juke','Qashqai','X-Trail','Leaf','Ariya','Navara'],
-    'Opel':['Corsa','Astra','Insignia','Mokka','Crossland','Grandland','Zafira','Combo'],
-    'Peugeot':['108','208','308','508','2008','3008','5008','e-208','Rifter','Partner','Boxer'],
-    'Porsche':['911','Cayenne','Macan','Panamera','Taycan','Boxster','Cayman'],
-    'Renault':['Clio','Megane','Captur','Kadjar','Arkana','Zoe','Austral','Espace','Trafic','Master'],
-    'Seat':['Ibiza','Leon','Arona','Ateca','Tarraco','Alhambra'],
-    'Skoda':['Fabia','Octavia','Superb','Kamiq','Karoq','Kodiaq','Enyaq','Scala'],
-    'Suzuki':['Alto','Swift','Vitara','SX4','Jimny','Across'],
-    'Tesla':['Model 3','Model S','Model X','Model Y','Cybertruck'],
-    'Toyota':['Yaris','Corolla','Camry','RAV4','C-HR','Prius','Aygo X','Hilux','Land Cruiser','bZ4X'],
-    'Volvo':['V40','V60','V90','S60','S90','XC40','XC60','XC90','C40','EX30'],
-    'VW':['Golf','Polo','Passat','Tiguan','T-Roc','T-Cross','Touareg','Touran','Sharan','Caddy','ID.3','ID.4','ID.7','Arteon','Up'],
-  };
+  // ── Car brands (fallback list, merged with brands already in the DB) ──
+  const BRAND_NAMES = ['Audi','BMW','Citroën','Dacia','Fiat','Ford','Honda','Hyundai','Kia','Mazda','Mercedes','Mitsubishi','Nissan','Opel','Peugeot','Porsche','Renault','Seat','Skoda','Suzuki','Tesla','Toyota','Volvo','VW'];
 
   // ── Achievements ───────────────────────────────────────────
   const ACHIEVEMENTS = [
@@ -339,9 +311,9 @@
     { id:'twenty5', icon:'⭐', name:'Viertel-Hundert',  desc:'25 Kennzeichen gesammelt',  check:e=>e.length>=25 },
     { id:'fifty',   icon:'🏆', name:'Halbe Hundert',    desc:'50 Kennzeichen gesammelt',  check:e=>e.length>=50 },
     { id:'hundred', icon:'💯', name:'Die 100!',         desc:'100 Kennzeichen gesammelt', check:e=>e.length>=100 },
-    { id:'brand1',  icon:'🚗', name:'Erste Marke',      desc:'Eine Marke erfasst',        check:e=>new Set(e.map(x=>x.brand).filter(b=>b&&b!=='–')).size>=1 },
-    { id:'brand5',  icon:'🚘', name:'Markenkenner',     desc:'5 verschiedene Marken',     check:e=>new Set(e.map(x=>x.brand).filter(b=>b&&b!=='–')).size>=5 },
-    { id:'brand10', icon:'🏎️', name:'Marken-Experte',  desc:'10 verschiedene Marken',    check:e=>new Set(e.map(x=>x.brand).filter(b=>b&&b!=='–')).size>=10 },
+    { id:'brand1',  icon:'🚗', name:'Erste Marke',      desc:'Eine Marke erfasst',        check:e=>new Set(e.map(x=>x.brands?.brand).filter(Boolean)).size>=1 },
+    { id:'brand5',  icon:'🚘', name:'Markenkenner',     desc:'5 verschiedene Marken',     check:e=>new Set(e.map(x=>x.brands?.brand).filter(Boolean)).size>=5 },
+    { id:'brand10', icon:'🏎️', name:'Marken-Experte',  desc:'10 verschiedene Marken',    check:e=>new Set(e.map(x=>x.brands?.brand).filter(Boolean)).size>=10 },
     { id:'low',     icon:'1️⃣', name:'Niedrige Zahl',   desc:'Nummer unter 10 gefunden',  check:e=>e.some(x=>x.num<10) },
     { id:'high',    icon:'🔢', name:'Große Zahl',       desc:'Nummer über 500 gefunden',  check:e=>e.some(x=>x.num>500) },
     { id:'today3',  icon:'⚡', name:'Aktiv dabei',      desc:'3 Funde an einem Tag',      check:e=>{ const d={}; e.forEach(x=>{const k=x.created_at?.slice(0,10);if(k)d[k]=(d[k]||0)+1;}); return Object.values(d).some(v=>v>=3); }},
@@ -354,15 +326,7 @@
     currentUser = session.user;
     document.getElementById('navUser').textContent = currentUser.email;
 
-    // Populate brand dropdowns (both input and modal)
-    [document.getElementById('inputBrand'), document.getElementById('modalBrand')].forEach(brandSel => {
-      Object.keys(CAR_DATA).forEach(b => {
-        const o = document.createElement('option');
-        o.value = b; o.textContent = b;
-        brandSel.appendChild(o);
-      });
-    });
-
+    await loadBrands();
     await loadEntries();
     document.getElementById('loadingScreen').classList.add('hidden');
 
@@ -371,14 +335,48 @@
       document.getElementById('prevNum').textContent = this.value.trim() || '???';
     });
     document.getElementById('inputNum').addEventListener('keydown', e => { if(e.key==='Enter') document.getElementById('inputBrand').focus(); });
-    document.getElementById('inputBrand').addEventListener('keydown', e => { if(e.key==='Enter') document.getElementById('inputModel').focus(); });
-    document.getElementById('inputModel').addEventListener('keydown', e => { if(e.key==='Enter') addEntry(); });
+    document.getElementById('inputBrand').addEventListener('keydown', e => { if(e.key==='Enter') document.getElementById('inputColor').focus(); });
+    document.getElementById('inputColor').addEventListener('keydown', e => { if(e.key==='Enter') addEntry(); });
+  }
+
+  // ── Brands (lookup table) ────────────────────────────────────
+  async function loadBrands() {
+    const { data, error } = await sb.from('brands').select('id, brand').order('brand');
+    if (error) console.error(error);
+    brandsList = data || [];
+
+    // Merge in the fallback names so the dropdown never looks empty on a fresh DB
+    const existingNames = new Set(brandsList.map(b => b.brand));
+    BRAND_NAMES.filter(n => !existingNames.has(n)).forEach(n => brandsList.push({ id: null, brand: n }));
+    brandsList.sort((a, b) => a.brand.localeCompare(b.brand, 'de'));
+
+    [document.getElementById('inputBrand'), document.getElementById('modalBrand')].forEach(brandSel => {
+      brandsList.forEach(b => {
+        const o = document.createElement('option');
+        o.value = b.brand; o.textContent = b.brand;
+        brandSel.appendChild(o);
+      });
+    });
+  }
+
+  // Resolves a brand name to its id, creating the brand row if it doesn't exist yet
+  async function getOrCreateBrandId(name) {
+    if (!name) return null;
+    const existing = brandsList.find(b => b.brand === name && b.id != null);
+    if (existing) return existing.id;
+
+    const { data, error } = await sb.from('brands').upsert({ brand: name }, { onConflict: 'brand' }).select('id, brand').single();
+    if (error) { console.error(error); return null; }
+
+    const idx = brandsList.findIndex(b => b.brand === name);
+    if (idx >= 0) brandsList[idx].id = data.id; else brandsList.push(data);
+    return data.id;
   }
 
   async function loadEntries() {
     const { data, error } = await sb
       .from('mel_kennzeichen')
-      .select('*')
+      .select('*, brands(brand)')
       .eq('user_id', currentUser.id)
       .order('created_at', { ascending: false });
 
@@ -388,45 +386,11 @@
     renderAll();
   }
 
-  // ── Models dropdown ────────────────────────────────────────
-  function updateModels() {
-    const brand = document.getElementById('inputBrand').value;
-    const modelSel = document.getElementById('inputModel');
-    modelSel.innerHTML = '';
-    if (!brand) {
-      modelSel.innerHTML = '<option value="">– erst Marke wählen –</option>';
-      modelSel.disabled = true; return;
-    }
-    modelSel.disabled = false;
-    const ph = document.createElement('option'); ph.value=''; ph.textContent='– Modell wählen –';
-    modelSel.appendChild(ph);
-    (CAR_DATA[brand]||[]).forEach(m => {
-      const o = document.createElement('option'); o.value=m; o.textContent=m;
-      modelSel.appendChild(o);
-    });
-  }
-
-  function updateModalModels() {
-    const brand = document.getElementById('modalBrand').value;
-    const modelSel = document.getElementById('modalModel');
-    modelSel.innerHTML = '';
-    if (!brand) {
-      modelSel.innerHTML = '<option value="">– Modell wählen –</option>';
-      return;
-    }
-    const ph = document.createElement('option'); ph.value=''; ph.textContent='– Modell wählen –';
-    modelSel.appendChild(ph);
-    (CAR_DATA[brand]||[]).forEach(m => {
-      const o = document.createElement('option'); o.value=m; o.textContent=m;
-      modelSel.appendChild(o);
-    });
-  }
-
   // ── Add entry ──────────────────────────────────────────────
   async function addEntry() {
     const num   = document.getElementById('inputNum').value.trim();
     const brand = document.getElementById('inputBrand').value.trim();
-    const model = document.getElementById('inputModel').value.trim();
+    const color = document.getElementById('inputColor').value.trim();
     const errEl = document.getElementById('errorMsg');
     const btn   = document.getElementById('btnAdd');
 
@@ -443,12 +407,14 @@
 
     btn.disabled = true; btn.textContent = 'Speichern…';
 
+    const brandId = await getOrCreateBrandId(brand);
+
     const { data, error } = await sb.from('mel_kennzeichen').insert({
       user_id: currentUser.id,
       num: numInt,
-      brand: brand || '–',
-      model: model || '–'
-    }).select().single();
+      brand_id: brandId,
+      color: color || null
+    }).select('*, brands(brand)').single();
 
     btn.disabled = false; btn.textContent = '+ Kennzeichen Erfassen';
 
@@ -467,8 +433,7 @@
 
     document.getElementById('inputNum').value = '';
     document.getElementById('inputBrand').value = '';
-    document.getElementById('inputModel').innerHTML = '<option value="">– erst Marke wählen –</option>';
-    document.getElementById('inputModel').disabled = true;
+    document.getElementById('inputColor').value = '';
     document.getElementById('prevNum').textContent = '???';
     showToast('MEL · LE · ' + numInt + ' erfasst! 🎯');
   }
@@ -487,12 +452,9 @@
     if (!entry) return;
     editingEntryId = id;
     document.getElementById('modalNum').value = entry.num;
-    document.getElementById('modalBrand').value = entry.brand === '–' ? '' : entry.brand;
+    document.getElementById('modalBrand').value = entry.brands?.brand || '';
+    document.getElementById('modalColor').value = entry.color || '';
     document.getElementById('modalError').classList.remove('show');
-    updateModalModels();
-    if (entry.brand && entry.brand !== '–') {
-      document.getElementById('modalModel').value = entry.model === '–' ? '' : entry.model;
-    }
     document.getElementById('editModal').classList.add('show');
     setTimeout(() => document.getElementById('modalNum').focus(), 100);
   }
@@ -506,7 +468,7 @@
   async function saveEdit() {
     const num = document.getElementById('modalNum').value.trim();
     const brand = document.getElementById('modalBrand').value.trim();
-    const model = document.getElementById('modalModel').value.trim();
+    const color = document.getElementById('modalColor').value.trim();
     const errEl = document.getElementById('modalError');
     const btn = document.getElementById('btnModalSave');
 
@@ -523,12 +485,14 @@
 
     btn.disabled = true; btn.textContent = 'Speichern…';
 
+    const brandId = await getOrCreateBrandId(brand);
+
     const { error } = await sb
       .from('mel_kennzeichen')
       .update({
         num: numInt,
-        brand: brand || '–',
-        model: model || '–',
+        brand_id: brandId,
+        color: color || null,
         updated_at: new Date().toISOString()
       })
       .eq('id', editingEntryId);
@@ -577,7 +541,7 @@
     return entries.filter(e => {
       if (currentFilter==='today' && new Date(e.created_at).toDateString()!==now.toDateString()) return false;
       if (currentFilter==='recent' && (now-new Date(e.created_at))/86400000>7) return false;
-      if (q && !(e.num+' '+e.brand+' '+e.model).toLowerCase().includes(q)) return false;
+      if (q && !(e.num+' '+(e.brands?.brand||'')+' '+(e.color||'')).toLowerCase().includes(q)) return false;
       return true;
     });
   }
@@ -588,7 +552,7 @@
     document.getElementById('statTotal').textContent   = entries.length;
     document.getElementById('statToday').textContent   = entries.filter(e=>new Date(e.created_at).toDateString()===todayStr).length;
     document.getElementById('statHighest').textContent = entries.length ? Math.max(...entries.map(e=>e.num)) : '–';
-    document.getElementById('statBrands').textContent  = new Set(entries.map(e=>e.brand).filter(b=>b&&b!=='–')).size;
+    document.getElementById('statBrands').textContent  = new Set(entries.map(e=>e.brand_id).filter(Boolean)).size;
   }
 
   function renderAchievements() {
@@ -605,7 +569,7 @@
   function renderBrandRanking() {
     const el = document.getElementById('brandRanking');
     const counts = {};
-    entries.forEach(e => { if(e.brand&&e.brand!=='–') counts[e.brand]=(counts[e.brand]||0)+1; });
+    entries.forEach(e => { const b = e.brands?.brand; if(b) counts[b]=(counts[b]||0)+1; });
     const sorted = Object.entries(counts).sort((a,b)=>b[1]-a[1]).slice(0,8);
     if (!sorted.length) { el.innerHTML='<div class="brand-empty">Noch keine Marken erfasst.</div>'; return; }
     const max = sorted[0][1];
@@ -643,10 +607,10 @@
           <div class="plate-text"><span class="region">MEL · LE</span> · ${e.num}</div>
         </div></div>
         <div class="entry-info">
-          <div class="entry-model">${[e.brand,e.model].filter(x=>x&&x!=='–').join(' ')||'–'}</div>
+          <div class="entry-model">${[e.brands?.brand,e.color].filter(Boolean).join(' · ')||'–'}</div>
           <div class="entry-meta">
-            ${e.brand&&e.brand!=='–'?'<span>🏷 '+e.brand+'</span>':''}
-            ${e.model&&e.model!=='–'?'<span>🚘 '+e.model+'</span>':''}
+            ${e.brands?.brand?'<span>🏷 '+e.brands.brand+'</span>':''}
+            ${e.color?'<span>🎨 '+e.color+'</span>':''}
           </div>
         </div>
         <div class="entry-date">${formatDate(e.updated_at || e.created_at)}</div>
