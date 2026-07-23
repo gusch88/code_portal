@@ -1227,7 +1227,6 @@
     }
   }
 
-  // ── Zufällige Codes für die Schnellauswahl: neu gewürfelt bei jedem Laden ──
   function shuffleArray(arr) {
     const a = [...arr];
     for (let i = a.length - 1; i > 0; i--) {
@@ -1237,30 +1236,81 @@
     return a;
   }
 
-  let sessionChipCodes = null;
-
-  function getSessionChipCodes() {
-    if (!allCodes.length) return [];
-    if (!sessionChipCodes) {
-      sessionChipCodes = shuffleArray(allCodes).slice(0, CHIPS_RANDOM_COUNT).map(c => c.code);
-    }
-    return sessionChipCodes;
+  // ── Schnellauswahl: smarte Vorschläge statt reinem Zufall ──
+  // Bevorzugt offene Kennzeichen aus Gruppen (Bundesland/Anfangsbuchstabe/
+  // Länge), die schon fast vollständig gesammelt sind — der Rest bleibt
+  // zufällig, damit die Auswahl nicht immer dieselben Kandidaten zeigt.
+  // Gruppen mit nur einem Mitglied ausgeklammert, da sie nie "fast vollständig" sein können
+  function buildRemainingMap(chapters, minGroupSize = 2) {
+    const map = new Map();
+    chapters.forEach(ch => {
+      if (ch.meta.total < minGroupSize) return;
+      const remaining = ch.meta.total - ch.meta.collected;
+      ch.codes.forEach(c => map.set(c.code, remaining));
+    });
+    return map;
   }
 
-  // ── Schnellauswahl-Chips: 10 zufällige Codes, neu bei jedem Seiten-Reload ──
+  function rankMissingCodes(have) {
+    const missing = allCodes.filter(c => !have.has(c.code));
+    if (!missing.length) return [];
+    const remBund = buildRemainingMap(getBundeslandChapters(have));
+    const remAlpha = buildRemainingMap(getAlphabetChapters(have));
+    const remLen = buildRemainingMap(getLaengeChapters(have));
+    return shuffleArray(missing)
+      .map(c => ({
+        codeObj: c,
+        score: Math.min(
+          remBund.get(c.code) ?? Infinity,
+          remAlpha.get(c.code) ?? Infinity,
+          remLen.get(c.code) ?? Infinity
+        )
+      }))
+      .sort((a, b) => a.score - b.score)
+      .map(x => x.codeObj);
+  }
+
+  let chipCodes = null; // aktuell angezeigte Vorschlags-Codes (Strings)
+
+  function fillChipCodes(have) {
+    const ranked = rankMissingCodes(have);
+    if (!ranked.length) { chipCodes = []; return; }
+    const focusCount = Math.min(ranked.length, Math.ceil(CHIPS_RANDOM_COUNT * 0.7));
+    const focus = ranked.slice(0, focusCount);
+    const rest = shuffleArray(ranked.slice(focusCount)).slice(0, CHIPS_RANDOM_COUNT - focus.length);
+    chipCodes = shuffleArray(focus.concat(rest)).map(c => c.code);
+  }
+
+  // Ersetzt bereits gesammelte Vorschläge sofort durch den nächstbesten Kandidaten
+  function ensureChipCodes(have) {
+    if (!allCodes.length) { chipCodes = []; return; }
+    if (!chipCodes) { fillChipCodes(have); return; }
+    const stillOpen = chipCodes.filter(code => !have.has(code));
+    if (stillOpen.length === chipCodes.length) return;
+    const ranked = rankMissingCodes(have).filter(c => !stillOpen.includes(c.code));
+    const replacements = ranked.slice(0, CHIPS_RANDOM_COUNT - stillOpen.length).map(c => c.code);
+    chipCodes = stillOpen.concat(replacements);
+  }
+
   function renderChips() {
     const el = document.getElementById('chipsRow');
     if (!allCodes.length) { el.innerHTML = ''; return; }
-    const chipCodes = getSessionChipCodes().map(code => allCodes.find(c => c.code === code)).filter(Boolean);
     const have = new Set(entries.map(e => e.code));
-    const allCollected = chipCodes.every(c => have.has(c.code));
+    ensureChipCodes(have);
 
-    let html = `<span class="chips-label">${allCollected ? '🎉 Auswahl komplett gesammelt!' : 'Schnellauswahl:'}</span>`;
-    html += chipCodes.map(c => {
-      const title = `${c.name} (${c.bundesland})`;
-      if (have.has(c.code)) {
-        return `<span class="chip collected" title="${title} — bereits gesammelt">✓ ${c.code}</span>`;
-      }
+    if (!chipCodes.length) {
+      el.innerHTML = `<span class="chips-label">🎉 Alle Kennzeichen gesammelt!</span>`;
+      return;
+    }
+
+    const remBund = buildRemainingMap(getBundeslandChapters(have));
+    let html = `<span class="chips-label">Vorschläge:</span>`;
+    html += chipCodes.map(code => {
+      const c = allCodes.find(x => x.code === code);
+      if (!c) return '';
+      const remaining = remBund.get(c.code);
+      const hint = remaining === 1 ? ` — letztes fehlendes Kennzeichen aus ${c.bundesland}!` : '';
+      const title = `${c.name} (${c.bundesland})${hint}`;
       return `<button class="chip" onclick="quickAdd('${c.code}')" title="${title}">${c.code}</button>`;
     }).join('');
     el.innerHTML = html;
