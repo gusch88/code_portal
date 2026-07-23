@@ -359,7 +359,6 @@
     </div>
     <div class="error-msg" id="errorMsg"></div>
     <div class="code-hint" id="codeHint"></div>
-    <div class="chips-row" id="chipsRow"></div>
     <div class="chips-row" id="nearbyRow"></div>
   </div>
 </div>
@@ -585,7 +584,6 @@
   const ENTRIES_CACHE_KEY = 'kfz_entries_cache_v1';
   const CODES_CACHE_KEY = 'kfz_codes_cache_v1';
   const TAB_KEY = 'kfz_active_tab_v1';
-  const CHIPS_RANDOM_COUNT = 10;
   const NEARBY_COUNT = 8;
   let codeLocations = null;
   let userLocation = null;
@@ -1227,95 +1225,6 @@
     }
   }
 
-  function shuffleArray(arr) {
-    const a = [...arr];
-    for (let i = a.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [a[i], a[j]] = [a[j], a[i]];
-    }
-    return a;
-  }
-
-  // ── Schnellauswahl: smarte Vorschläge statt reinem Zufall ──
-  // Bevorzugt offene Kennzeichen aus Gruppen (Bundesland/Anfangsbuchstabe/
-  // Länge), die schon fast vollständig gesammelt sind — der Rest bleibt
-  // zufällig, damit die Auswahl nicht immer dieselben Kandidaten zeigt.
-  // Gruppen mit nur einem Mitglied ausgeklammert, da sie nie "fast vollständig" sein können
-  function buildRemainingMap(chapters, minGroupSize = 2) {
-    const map = new Map();
-    chapters.forEach(ch => {
-      if (ch.meta.total < minGroupSize) return;
-      const remaining = ch.meta.total - ch.meta.collected;
-      ch.codes.forEach(c => map.set(c.code, remaining));
-    });
-    return map;
-  }
-
-  function rankMissingCodes(have) {
-    const missing = allCodes.filter(c => !have.has(c.code));
-    if (!missing.length) return [];
-    const remBund = buildRemainingMap(getBundeslandChapters(have));
-    const remAlpha = buildRemainingMap(getAlphabetChapters(have));
-    const remLen = buildRemainingMap(getLaengeChapters(have));
-    return shuffleArray(missing)
-      .map(c => ({
-        codeObj: c,
-        score: Math.min(
-          remBund.get(c.code) ?? Infinity,
-          remAlpha.get(c.code) ?? Infinity,
-          remLen.get(c.code) ?? Infinity
-        )
-      }))
-      .sort((a, b) => a.score - b.score)
-      .map(x => x.codeObj);
-  }
-
-  let chipCodes = null; // aktuell angezeigte Vorschlags-Codes (Strings)
-
-  function fillChipCodes(have) {
-    const ranked = rankMissingCodes(have);
-    if (!ranked.length) { chipCodes = []; return; }
-    const focusCount = Math.min(ranked.length, Math.ceil(CHIPS_RANDOM_COUNT * 0.7));
-    const focus = ranked.slice(0, focusCount);
-    const rest = shuffleArray(ranked.slice(focusCount)).slice(0, CHIPS_RANDOM_COUNT - focus.length);
-    chipCodes = shuffleArray(focus.concat(rest)).map(c => c.code);
-  }
-
-  // Ersetzt bereits gesammelte Vorschläge sofort durch den nächstbesten Kandidaten
-  function ensureChipCodes(have) {
-    if (!allCodes.length) { chipCodes = []; return; }
-    if (!chipCodes) { fillChipCodes(have); return; }
-    const stillOpen = chipCodes.filter(code => !have.has(code));
-    if (stillOpen.length === chipCodes.length) return;
-    const ranked = rankMissingCodes(have).filter(c => !stillOpen.includes(c.code));
-    const replacements = ranked.slice(0, CHIPS_RANDOM_COUNT - stillOpen.length).map(c => c.code);
-    chipCodes = stillOpen.concat(replacements);
-  }
-
-  function renderChips() {
-    const el = document.getElementById('chipsRow');
-    if (!allCodes.length) { el.innerHTML = ''; return; }
-    const have = new Set(entries.map(e => e.code));
-    ensureChipCodes(have);
-
-    if (!chipCodes.length) {
-      el.innerHTML = `<span class="chips-label">🎉 Alle Kennzeichen gesammelt!</span>`;
-      return;
-    }
-
-    const remBund = buildRemainingMap(getBundeslandChapters(have));
-    let html = `<span class="chips-label">Vorschläge:</span>`;
-    html += chipCodes.map(code => {
-      const c = allCodes.find(x => x.code === code);
-      if (!c) return '';
-      const remaining = remBund.get(c.code);
-      const hint = remaining === 1 ? ` — letztes fehlendes Kennzeichen aus ${c.bundesland}!` : '';
-      const title = `${c.name} (${c.bundesland})${hint}`;
-      return `<button class="chip" onclick="quickAdd('${c.code}')" title="${title}">${c.code}</button>`;
-    }).join('');
-    el.innerHTML = html;
-  }
-
   function openEditModal(id) {
     const entry = entries.find(e => String(e.id) === String(id));
     if (entry && entry._pending) {
@@ -1715,7 +1624,6 @@
     renderAchievements();
     renderCodeRanking();
     renderSammlungAlbum();
-    renderChips();
     renderNearbyChips();
     renderMap();
     updateCodeHint();
