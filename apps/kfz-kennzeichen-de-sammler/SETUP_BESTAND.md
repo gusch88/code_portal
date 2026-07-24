@@ -119,6 +119,19 @@ Die Ausgabe (Tabellenblattnamen + erste 15 Zeilen jedes Blatts) einfach
 weitergeben, dann lässt sich die Spalten-/Header-Erkennung im Skript gezielt
 anpassen.
 
+### Reales Dateilayout (Blatt "FZ1.1")
+
+Die KBA-XLSX hat mehrere Tabellenblätter (Deckblatt, Impressum,
+Inhaltsverzeichnis, FZ1.1, FZ1.2, ...). Relevant ist **FZ1.1**. Der Header
+ist zweizeilig: eine Kategorie-Zeile (z.B. "Kraftfahrzeuge") über einer
+Unterspalten-Zeile (z.B. "insgesamt") — das Skript sucht gezielt die
+Spalte, wo beide zusammen "Kraftfahrzeuge" + "insgesamt" ergeben (die
+Gesamtzahl aller Fahrzeugarten), da "insgesamt" allein mehrfach vorkommt
+(Krafträder insgesamt, PKW insgesamt, LKW insgesamt, ...). Zulassungsbezirk-
+Schlüssel und -Name stehen kombiniert in einer Spalte, z.B.
+"08111 STUTTGART,STADT" (5-stelliger amtlicher Schlüssel + Leerzeichen +
+Name in Großbuchstaben mit transliterierten Umlauten).
+
 ### Was das Skript inhaltlich macht
 
 1. Liest die lokale `kreise.geojson` ein — die kennt zu jedem der 409
@@ -127,11 +140,10 @@ anpassen.
    für Kreise mit mehreren gültigen Codes).
 2. Liest die KBA-XLSX ein und sucht pro Zeile (ein Zulassungsbezirk) den
    passenden Kreis in der geojson — zunächst über den amtlichen Schlüssel,
-   sonst über einen normalisierten Namensvergleich (KBA schreibt
-   Kreisnamen z.B. als "Landkreis X" oder "X, Landkreis", die geojson nur
-   als "X" — das Skript gleicht das an), sonst über eine kleine
-   fest hinterlegte Liste von Sonderfällen (z.B. Region Hannover,
-   Städteregion Aachen).
+   sonst über einen normalisierten Namensvergleich (Groß-/Kleinschreibung,
+   transliterierte Umlaute wie "OE"/"AE"/"UE", Zusätze wie ",STADT"
+   werden dabei ausgeglichen), sonst über eine kleine fest hinterlegte
+   Liste von Sonderfällen (z.B. Region Hannover, Städteregion Aachen).
 3. Hat ein Kreis nur **einen** Kennzeichen-Code, wird der Bestand 1:1
    übernommen. Hat er **mehrere** Codes, wird der Bestand **gleichmäßig
    durch die Anzahl Codes geteilt** und als Schätzung (`is_shared = true`)
@@ -142,6 +154,15 @@ anpassen.
 5. Das Ergebnis (eine Zeile pro Kennzeichen-Code) wird per Upsert
    (`onConflict: 'code'`) in `kennzeichen_bestand` geschrieben — ein
    erneuter Lauf im nächsten Jahr überschreibt die alten Werte einfach.
+
+**Bekannte Einschränkung:** Acht Gemeinden (Hanau, Wismar, Stralsund,
+Greifswald, Neubrandenburg, Büsingen, Völklingen, St. Ingbert) haben ein
+eigenes Kennzeichen, gehören aber zu einem größeren Landkreis. Ob die
+KBA-Statistik diese separat ausweist oder unter dem übergeordneten
+Landkreis zusammenfasst, war ohne Zugriff auf eine echte Datei nicht zu
+klären — im zweiten Fall bekommt der Code dieser Gemeinde schlicht keinen
+Bestandswert (kein Absturz, die App zeigt dann einfach keine
+Seltenheits-Info für diesen Code an).
 
 ## 5. Turnus
 

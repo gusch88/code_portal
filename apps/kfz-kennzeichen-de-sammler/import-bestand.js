@@ -62,7 +62,7 @@ if (!inspect) {
 }
 
 // Von KBA verwendete Präfixe/Suffixe, die die geojson-Namen nicht führen.
-const NAME_AFFIXES = /^(LK|SK|Landkreis|Kreisfreie Stadt|Stadtkreis|Kreis)\s+|,?\s*(Landkreis|Kreisfreie Stadt|Stadtkreis|Kreis)$/gi;
+const NAME_AFFIXES = /^(LK|SK|Landkreis|Kreisfreie Stadt|Stadtkreis|Kreis)\s+|,?\s*(Landkreis|Kreisfreie Stadt|Stadtkreis|Kreis|Stadt)$/gi;
 
 // Bekannte hartnäckige Fälle, bei denen Namensnormalisierung allein nicht
 // reicht (z.B. Gebietskörperschaften ohne klassisches "Landkreis X"-Muster,
@@ -71,6 +71,10 @@ const NAME_AFFIXES = /^(LK|SK|Landkreis|Kreisfreie Stadt|Stadtkreis|Kreis)\s+|,?
 // Wert die ARS (5-stellig) aus kreise.geojson.
 const OVERRIDES = {};
 
+// KBA schreibt Namen in Großbuchstaben mit transliterierten Umlauten
+// (z.B. "BOEBLINGEN" statt "Böblingen"). Beide Seiten auf dieselbe
+// ASCII-Form zu bringen ist zuverlässiger, als KBAs verlustbehaftete
+// Transliteration wieder rückgängig machen zu wollen.
 function normalizeName(raw) {
   return raw
     .normalize('NFC')
@@ -78,7 +82,8 @@ function normalizeName(raw) {
     .replace(/\s*\(.*?\)\s*/g, ' ')
     .replace(/\s+/g, ' ')
     .trim()
-    .toLowerCase();
+    .toLowerCase()
+    .replace(/ä/g, 'ae').replace(/ö/g, 'oe').replace(/ü/g, 'ue').replace(/ß/g, 'ss');
 }
 
 function loadKreise() {
@@ -92,20 +97,31 @@ function loadKreise() {
   }));
 }
 
-// Findet die Header-Zeile per Textsuche statt fixer Zeilennummer, damit das
-// Skript auch bei leicht verändertem Layout im Folgejahr noch funktioniert.
-// Verlangt Name- und Bestand-Spalte in unterschiedlichen Zellen derselben
-// Zeile, sonst würde z.B. eine Titelzeile wie "... nach Zulassungsbezirken"
-// (die das Wort "Zulassungsbezirk" ebenfalls enthält) fälschlich matchen.
+// Das reale KBA-FZ1-Layout (Blatt "FZ1.1") hat einen zweizeiligen Header:
+// eine Kategorie-Zeile (z.B. "Kraftfahrzeuge") direkt über einer
+// Unterspalten-Zeile (z.B. "insgesamt") — Excel zeigt die Kategorie als
+// verbundene Zelle über mehrere Spalten. "insgesamt" taucht dabei mehrfach
+// auf (Krafträder insgesamt, PKW insgesamt, LKW insgesamt, ...), daher
+// reicht die Unterspalten-Zeile allein nicht: erst die Kombination aus
+// Kategorie == "Kraftfahrzeuge" UND Unterspalte == "insgesamt" trifft
+// eindeutig die Gesamt-Bestandsspalte (alle Fahrzeugarten zusammen).
+// Zulassungsbezirk-Schlüssel und -Name stehen kombiniert in einer Spalte,
+// z.B. "08111 STUTTGART,STADT" (siehe parseFZ1).
 function findHeader(rows) {
   for (let i = 0; i < rows.length; i++) {
     const row = rows[i] || [];
-    const nameCol = row.findIndex(c => typeof c === 'string' && /zulassungsbezirk/i.test(c));
-    const bestandCol = row.findIndex(c => typeof c === 'string' && /(bestand|insgesamt)/i.test(c));
-    if (nameCol !== -1 && bestandCol !== -1 && nameCol !== bestandCol) {
-      const arsCol = row.findIndex(c => typeof c === 'string' && /(schlüssel|ags|ars)/i.test(c));
-      return { headerIdx: i, nameCol, arsCol, bestandCol };
+    const nameArsCol = row.findIndex(c => typeof c === 'string' && /zulassungsbezirk/i.test(c));
+    if (nameArsCol === -1) continue;
+
+    const categoryRow = rows[i - 1] || [];
+    let bestandCol = -1;
+    for (let c = 0; c < row.length; c++) {
+      const sub = typeof row[c] === 'string' ? row[c].trim().toLowerCase() : '';
+      const cat = typeof categoryRow[c] === 'string' ? categoryRow[c].trim().toLowerCase() : '';
+      if (sub === 'insgesamt' && cat === 'kraftfahrzeuge') { bestandCol = c; break; }
     }
+    if (bestandCol === -1) continue;
+    return { headerIdx: i, nameArsCol, bestandCol };
   }
   return null;
 }
@@ -122,9 +138,9 @@ function sheetToRows(worksheet) {
   return rows;
 }
 
-// KBA-Exporte haben teils mehrere Tabellenblätter (z.B. ein Deckblatt/
-// Erläuterungen vor der eigentlichen Datentabelle) — alle Sheets nach der
-// ersten Zeile durchsuchen, die getrennte Name- und Bestand-Spalten hat.
+// KBA-Exporte haben mehrere Tabellenblätter (Deckblatt, Impressum,
+// Inhaltsverzeichnis, FZ1.1, FZ1.2, ...) — alle Sheets nach der ersten
+// Zeile durchsuchen, die zur erwarteten Kopf-Struktur passt.
 async function parseFZ1(filePath) {
   const workbook = new ExcelJS.Workbook();
   await workbook.xlsx.readFile(filePath);
@@ -134,23 +150,23 @@ async function parseFZ1(filePath) {
     const header = findHeader(rows);
     if (!header) continue;
 
-    const { headerIdx, nameCol, arsCol, bestandCol } = header;
+    const { headerIdx, nameArsCol, bestandCol } = header;
     const out = [];
     for (let i = headerIdx + 1; i < rows.length; i++) {
       const row = rows[i];
-      if (!row || !row[nameCol]) continue;
+      if (!row || !row[nameArsCol]) continue;
+      // Zeile ist "<5-stelliger Schlüssel> <Name>", z.B. "08111 STUTTGART,STADT".
+      // Zwischensummen/Fußnoten ohne diesen Schlüssel werden übersprungen.
+      const match = String(row[nameArsCol]).trim().match(/^(\d{5})\s+(.+)$/);
+      if (!match) continue;
       const bestand = Number(row[bestandCol]);
       if (!bestand || Number.isNaN(bestand)) continue;
-      out.push({
-        name: String(row[nameCol]).trim(),
-        ars: arsCol !== -1 && row[arsCol] ? String(row[arsCol]).trim() : null,
-        bestand,
-      });
+      out.push({ ars: match[1], name: match[2].trim(), bestand });
     }
     if (out.length) return out;
   }
 
-  throw new Error('Konnte in keinem Tabellenblatt eine Header-Zeile mit getrennter Zulassungsbezirk- und Bestand-Spalte finden. Führe "node import-bestand.js <datei> --inspect" aus und schau dir die echten Spaltenüberschriften an.');
+  throw new Error('Konnte in keinem Tabellenblatt eine passende Kopf-Struktur finden. Führe "node import-bestand.js <datei> --inspect" aus und schau dir die echten Spaltenüberschriften an.');
 }
 
 function matchKreis(row, kreise) {
