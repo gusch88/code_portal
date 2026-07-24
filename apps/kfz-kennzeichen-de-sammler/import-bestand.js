@@ -142,10 +142,13 @@ function sheetToRows(worksheet) {
 // Inhaltsverzeichnis, FZ1.1, FZ1.2, ...) — alle Sheets nach der ersten
 // Zeile durchsuchen, die zur erwarteten Kopf-Struktur passt.
 async function parseFZ1(filePath) {
+  console.log('  … lese XLSX-Datei ein (kann bei großen Dateien etwas dauern)');
   const workbook = new ExcelJS.Workbook();
   await workbook.xlsx.readFile(filePath);
+  console.log(`  … Datei eingelesen, durchsuche ${workbook.worksheets.length} Tabellenblätter`);
 
   for (const worksheet of workbook.worksheets) {
+    console.log(`    - Blatt "${worksheet.name}" (${worksheet.rowCount} Zeilen)...`);
     const rows = sheetToRows(worksheet);
     const header = findHeader(rows);
     if (!header) continue;
