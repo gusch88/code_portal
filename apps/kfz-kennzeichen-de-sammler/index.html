@@ -359,7 +359,6 @@
     </div>
     <div class="error-msg" id="errorMsg"></div>
     <div class="code-hint" id="codeHint"></div>
-    <div class="chips-row" id="chipsRow"></div>
     <div class="chips-row" id="nearbyRow"></div>
   </div>
 </div>
@@ -585,7 +584,6 @@
   const ENTRIES_CACHE_KEY = 'kfz_entries_cache_v1';
   const CODES_CACHE_KEY = 'kfz_codes_cache_v1';
   const TAB_KEY = 'kfz_active_tab_v1';
-  const CHIPS_RANDOM_COUNT = 10;
   const NEARBY_COUNT = 8;
   let codeLocations = null;
   let userLocation = null;
@@ -1227,45 +1225,6 @@
     }
   }
 
-  // ── Zufällige Codes für die Schnellauswahl: neu gewürfelt bei jedem Laden ──
-  function shuffleArray(arr) {
-    const a = [...arr];
-    for (let i = a.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [a[i], a[j]] = [a[j], a[i]];
-    }
-    return a;
-  }
-
-  let sessionChipCodes = null;
-
-  function getSessionChipCodes() {
-    if (!allCodes.length) return [];
-    if (!sessionChipCodes) {
-      sessionChipCodes = shuffleArray(allCodes).slice(0, CHIPS_RANDOM_COUNT).map(c => c.code);
-    }
-    return sessionChipCodes;
-  }
-
-  // ── Schnellauswahl-Chips: 10 zufällige Codes, neu bei jedem Seiten-Reload ──
-  function renderChips() {
-    const el = document.getElementById('chipsRow');
-    if (!allCodes.length) { el.innerHTML = ''; return; }
-    const chipCodes = getSessionChipCodes().map(code => allCodes.find(c => c.code === code)).filter(Boolean);
-    const have = new Set(entries.map(e => e.code));
-    const allCollected = chipCodes.every(c => have.has(c.code));
-
-    let html = `<span class="chips-label">${allCollected ? '🎉 Auswahl komplett gesammelt!' : 'Schnellauswahl:'}</span>`;
-    html += chipCodes.map(c => {
-      const title = `${c.name} (${c.bundesland})`;
-      if (have.has(c.code)) {
-        return `<span class="chip collected" title="${title} — bereits gesammelt">✓ ${c.code}</span>`;
-      }
-      return `<button class="chip" onclick="quickAdd('${c.code}')" title="${title}">${c.code}</button>`;
-    }).join('');
-    el.innerHTML = html;
-  }
-
   function openEditModal(id) {
     const entry = entries.find(e => String(e.id) === String(id));
     if (entry && entry._pending) {
@@ -1665,7 +1624,6 @@
     renderAchievements();
     renderCodeRanking();
     renderSammlungAlbum();
-    renderChips();
     renderNearbyChips();
     renderMap();
     updateCodeHint();
