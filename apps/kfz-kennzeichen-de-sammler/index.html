@@ -243,6 +243,7 @@
   .mini-plate-code { font-family: 'DM Mono', monospace; font-size: 0.85rem; font-weight: 600; color: #111; letter-spacing: 0.5px; }
   .plate-card-name { font-size: 0.7rem; color: var(--muted); margin-top: 8px; white-space: normal; overflow-wrap: break-word; line-height: 1.3; }
   .plate-card-pending { font-size: 0.62rem; color: var(--accent); margin-top: 2px; font-family: 'DM Mono', monospace; }
+  .plate-card-rarity { font-size: 0.62rem; font-weight: 600; margin-top: 2px; }
   .plate-card-delete {
     position: absolute; top: -7px; right: -7px; width: 21px; height: 21px; border-radius: 50%;
     background: var(--surface2); border: 1px solid var(--border); color: var(--muted);
@@ -450,6 +451,12 @@
       </div>
     </div>
 
+    <div class="section-block" style="margin-top:18px;" id="rarityRankingBlock">
+      <div class="section-title">Seltenste Kennzeichen</div>
+      <div class="code-ranking" id="rarityRanking"></div>
+      <p class="modal-text" style="margin-top:10px; font-size:0.72rem; color:var(--muted);" id="bestandAttribution"></p>
+    </div>
+
     <div class="section-block" style="margin-top:18px;">
       <div class="section-title" style="display:flex; justify-content:space-between; align-items:baseline;">
         <span>Bestenliste</span>
@@ -498,6 +505,7 @@
       <label>Kennzeichen</label>
       <input type="text" id="modalCode" placeholder="z.B. B" maxlength="3" style="text-transform: uppercase;">
     </div>
+    <div class="modal-text" id="modalRarityInfo" style="display:none; margin-bottom:12px;"></div>
     <div class="modal-error" id="modalError"></div>
     <div class="modal-buttons">
       <button class="btn-modal btn-save" onclick="saveEdit()">Speichern</button>
@@ -562,6 +570,8 @@
   let pendingDeleteId = null;
   let editingEntryId = null;
   let allCodes = [];
+  let bestandByCode = {};
+  let rarityTiersCache = null;
   let kreiseGeoJSON = null;
   let map = null, geoLayer = null, mapRenderer = null;
   let currentTab = 'uebersicht';
@@ -584,6 +594,7 @@
   const QUEUE_KEY = 'kfz_offline_queue_v1';
   const ENTRIES_CACHE_KEY = 'kfz_entries_cache_v1';
   const CODES_CACHE_KEY = 'kfz_codes_cache_v1';
+  const BESTAND_CACHE_KEY = 'kfz_bestand_cache_v1';
   const TAB_KEY = 'kfz_active_tab_v1';
   const CHIPS_RANDOM_COUNT = 10;
   const NEARBY_COUNT = 8;
@@ -629,6 +640,13 @@
     { id:'fivehundred', icon:'🚀', name:'Sammler 500', desc:'500 Kennzeichen gesammelt', check:e=>e.length>=500 },
     { id:'half', icon:'⭐', name:'Halbe Sammlung', desc:'Hälfte aller Kennzeichen gesammelt', check:e=>new Set(e.map(x=>x.code)).size>=Math.ceil(allCodes.length/2) },
     { id:'allcodes', icon:'🌍', name:'Alle Bundesländer', desc:'Alle 16 Bundesländer', check:e=>allBundeslaenderCovered(e) },
+    { id:'raritaetenjaeger', icon:'💎', name:'Raritätenjäger', desc:'5 seltene Kennzeichen (Top 20%) gesammelt', check:e=>{
+      if (!rarityTiersCache) return false;
+      const collected = new Set(e.map(x=>x.code));
+      let count = 0;
+      collected.forEach(code=>{ const b=bestandByCode[code]; if (b && b.bestand_estimate<=rarityTiersCache.p20) count++; });
+      return count>=5;
+    }},
   ];
 
   function getCurrentStreak(entries) {
@@ -691,6 +709,13 @@
     try { return JSON.parse(localStorage.getItem(CODES_CACHE_KEY)) || []; }
     catch { return []; }
   }
+  function cacheBestand(list) {
+    try { localStorage.setItem(BESTAND_CACHE_KEY, JSON.stringify(list)); } catch {}
+  }
+  function readCachedBestand() {
+    try { return JSON.parse(localStorage.getItem(BESTAND_CACHE_KEY)) || []; }
+    catch { return []; }
+  }
 
   function updatePendingBadge(count) {
     const el = document.getElementById('pendingBadge');
@@ -751,6 +776,7 @@
     if (currentUser) document.getElementById('navUser').textContent = currentUser.email;
 
     await loadCodes();
+    await loadBestand();
     await loadEntries();
     await loadMapData();
     if (currentUser && navigator.onLine) await loadProfile();
@@ -783,6 +809,45 @@
     }
     allCodes = data;
     cacheCodes(data);
+  }
+
+  async function loadBestand() {
+    let data;
+    if (!navigator.onLine) {
+      data = readCachedBestand();
+    } else {
+      const res = await sb.from('kennzeichen_bestand').select('code,bestand_estimate,is_shared,code_count,source_year');
+      if (res.error) {
+        console.error('❌ Fehler beim Laden der Bestandsdaten:', res.error);
+        data = readCachedBestand();
+      } else {
+        data = res.data;
+        cacheBestand(data);
+      }
+    }
+    bestandByCode = {};
+    data.forEach(b => { bestandByCode[b.code] = b; });
+    rarityTiersCache = computeRarityTiers(bestandByCode);
+  }
+
+  // Seltenheits-Einstufung: unterstes Quintil (20%) = Selten, nächste 40% = Mittel, Rest = Häufig.
+  function computeRarityTiers(byCode) {
+    const values = Object.values(byCode).map(b => b.bestand_estimate).sort((a, b) => a - b);
+    if (!values.length) return null;
+    const q = p => values[Math.min(values.length - 1, Math.floor(p * values.length))];
+    return { p20: q(0.20), p60: q(0.60) };
+  }
+
+  function rarityTier(bestand) {
+    if (!rarityTiersCache || bestand == null) return null;
+    if (bestand <= rarityTiersCache.p20) return { key: 'selten', label: 'Selten', color: 'var(--red)' };
+    if (bestand <= rarityTiersCache.p60) return { key: 'mittel', label: 'Mittel', color: 'var(--accent)' };
+    return { key: 'haeufig', label: 'Häufig', color: 'var(--green)' };
+  }
+
+  function formatBestand(b) {
+    const n = b.bestand_estimate.toLocaleString('de');
+    return b.is_shared ? `≈ ${n} (geschätzt, geteilt mit ${b.code_count - 1} weiteren Codes)` : `${n} Fahrzeuge bundesweit`;
   }
 
   async function loadEntries() {
@@ -1275,6 +1340,15 @@
     editingEntryId = id;
     document.getElementById('modalCode').value = entry.code;
     document.getElementById('modalError').classList.remove('show');
+    const rarityEl = document.getElementById('modalRarityInfo');
+    const b = bestandByCode[entry.code];
+    if (b) {
+      const tier = rarityTier(b.bestand_estimate);
+      rarityEl.textContent = `${formatBestand(b)}${tier ? ' — ' + tier.label : ''} (Quelle: KBA FZ 1, Stand ${b.source_year})`;
+      rarityEl.style.display = '';
+    } else {
+      rarityEl.style.display = 'none';
+    }
     document.getElementById('editModal').classList.add('show');
   }
 
@@ -1444,12 +1518,22 @@
     </div>`;
   }
 
+  function renderRarityBadge(code) {
+    const b = bestandByCode[code];
+    if (!b) return '';
+    const tier = rarityTier(b.bestand_estimate);
+    if (!tier) return '';
+    return `<div class="plate-card-rarity" style="color:${tier.color}" title="${formatBestand(b)}">${tier.label}</div>`;
+  }
+
   function renderStickerSlot(codeData, entry) {
     const title = `${codeData.name} (${codeData.bundesland})`;
+    const rarityBadge = renderRarityBadge(codeData.code);
     if (!entry) {
       return `<div class="plate-card empty" title="${title} — noch nicht gesammelt">
         <div class="sticker-slot-empty">${codeData.code}</div>
         <div class="plate-card-name">${codeData.name}</div>
+        ${rarityBadge}
       </div>`;
     }
     const pendingBadge = entry._pending ? '<div class="plate-card-pending">⏳ wartet</div>' : '';
@@ -1460,6 +1544,7 @@
         <span class="mini-plate-code">${codeData.code}</span>
       </div>
       <div class="plate-card-name">${codeData.name}</div>
+      ${rarityBadge}
       ${pendingBadge}
     </div>`;
   }
@@ -1659,11 +1744,47 @@
     }).join('');
   }
 
+  function renderRarityRanking() {
+    const el = document.getElementById('rarityRanking');
+    const collectedCodes = Array.from(new Set(entries.map(e => e.code)));
+    const ranked = collectedCodes
+      .map(code => ({ code, b: bestandByCode[code] }))
+      .filter(x => x.b)
+      .sort((a, b) => a.b.bestand_estimate - b.b.bestand_estimate)
+      .slice(0, 10);
+
+    if (!ranked.length) {
+      el.innerHTML = '<div class="code-empty">Noch keine Bestandsdaten für gesammelte Kennzeichen</div>';
+      document.getElementById('bestandAttribution').textContent = '';
+      return;
+    }
+
+    const maxBestand = Math.max(...ranked.map(x => x.b.bestand_estimate));
+    el.innerHTML = ranked.map((item, i) => {
+      const codeData = allCodes.find(c => c.code === item.code);
+      const tier = rarityTier(item.b.bestand_estimate);
+      const barPct = maxBestand ? (item.b.bestand_estimate / maxBestand) * 100 : 0;
+      return `<div class="code-row">
+        <div class="code-rank">${i + 1}</div>
+        <div class="code-name" title="${formatBestand(item.b)}">${item.code}${codeData ? ' · ' + codeData.name : ''}
+          <div style="font-size:0.72rem;color:${tier ? tier.color : 'var(--muted)'};margin-top:2px">${tier ? tier.label : ''}</div>
+        </div>
+        <div class="code-bar-wrap"><div class="code-bar-fill" style="width:${barPct}%"></div></div>
+        <div class="code-count">${item.b.bestand_estimate.toLocaleString('de')}</div>
+      </div>`;
+    }).join('');
+
+    const sourceYear = ranked[0].b.source_year;
+    document.getElementById('bestandAttribution').textContent =
+      `Bestandsdaten: Kraftfahrt-Bundesamt (KBA), FZ 1, Datenlizenz Deutschland – Namensnennung 2.0, Stand: ${sourceYear}`;
+  }
+
   function renderAll() {
     renderStats();
     renderRecentPreview();
     renderAchievements();
     renderCodeRanking();
+    renderRarityRanking();
     renderSammlungAlbum();
     renderChips();
     renderNearbyChips();

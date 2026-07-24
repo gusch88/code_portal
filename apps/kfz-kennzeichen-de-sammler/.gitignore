@@ -3,6 +3,9 @@
 .env.local
 .env.*.local
 
+# KBA Bestand-Rohdaten (manueller Download, nicht versionieren)
+fz1_*.xlsx
+
 # Dependencies
 node_modules/
 npm-debug.log*
