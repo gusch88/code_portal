@@ -104,6 +104,21 @@ node import-bestand.js fz1_2026.xlsx 2026 --dry-run
 Der Dry-Run zeigt dieselbe Konsolenausgabe (inkl. `unmatched`-Warnungen),
 schreibt aber nichts in Supabase.
 
+### Alternative: CSV statt direktem Supabase-Zugriff
+
+Falls kein `SUPABASE_SERVICE_ROLE`-Key zur Hand ist (oder der direkte
+Zugriff aus anderen Gründen nicht funktioniert), kann das Skript stattdessen
+eine CSV-Datei schreiben, die sich über den Supabase Table Editor
+importieren lässt:
+
+```bash
+node import-bestand.js fz1_2026.xlsx 2026 --csv bestand_2026.csv
+```
+
+Die CSV-Spalten entsprechen exakt den Tabellenspalten. Import dann im
+Supabase Dashboard: **Table Editor → `kennzeichen_bestand` → Insert →
+Import data from CSV**.
+
 ### Falls "Konnte keine Header-Zeile finden" erscheint
 
 Das reale Spalten-Layout der KBA-Datei konnte beim Bau dieses Skripts nicht

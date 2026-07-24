@@ -12,6 +12,11 @@
  *     Zeigt Tabellenblätter + erste Zeilen roh an, ohne zu parsen — hilft,
  *     die Spaltennamen/Header-Position herauszufinden, falls das reale
  *     KBA-Layout von der erwarteten Struktur abweicht.
+ *
+ *   node import-bestand.js <pfad-zur-xlsx> <jahr> --csv <ausgabedatei.csv>
+ *     Schreibt das Ergebnis als CSV statt nach Supabase — z.B. zum Import
+ *     über den Supabase Table Editor ("Insert data" → "Import data from CSV"),
+ *     ohne SUPABASE_SERVICE_ROLE zu benötigen.
  */
 
 require('dotenv').config();
@@ -23,10 +28,12 @@ const { createClient } = require('@supabase/supabase-js');
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_ROLE = process.env.SUPABASE_SERVICE_ROLE;
 
-const args = process.argv.slice(2);
-const dryRun = args.includes('--dry-run');
-const inspect = args.includes('--inspect');
-const positional = args.filter(a => !a.startsWith('--'));
+const rawArgs = process.argv.slice(2);
+const dryRun = rawArgs.includes('--dry-run');
+const inspect = rawArgs.includes('--inspect');
+const csvIdx = rawArgs.indexOf('--csv');
+const csvOutPath = csvIdx !== -1 ? rawArgs[csvIdx + 1] : null;
+const positional = rawArgs.filter((a, i) => !a.startsWith('--') && i !== csvIdx + 1);
 const [xlsxPath, yearArg] = positional;
 
 if (!xlsxPath || !fs.existsSync(xlsxPath)) {
@@ -55,7 +62,7 @@ if (!inspect) {
     console.error('Usage: node import-bestand.js <pfad-zur-xlsx> <jahr> [--dry-run]');
     process.exit(1);
   }
-  if (!dryRun && (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE)) {
+  if (!dryRun && !csvOutPath && (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE)) {
     console.error('Error: SUPABASE_URL and SUPABASE_SERVICE_ROLE must be set in .env (nicht der anon-Key — siehe SETUP_BESTAND.md).');
     process.exit(1);
   }
@@ -220,6 +227,21 @@ function buildBestandRows(fz1Rows, kreise, year) {
   return { rows: out, unmatched };
 }
 
+const CSV_COLUMNS = ['code', 'ars', 'kreis_name', 'bestand_kreis', 'code_count', 'bestand_estimate', 'is_shared', 'source_year', 'source_label', 'updated_at'];
+
+function csvEscape(value) {
+  const s = String(value);
+  return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+}
+
+function writeCsv(filePath, rows) {
+  const lines = [CSV_COLUMNS.join(',')];
+  rows.forEach(row => {
+    lines.push(CSV_COLUMNS.map(col => csvEscape(row[col])).join(','));
+  });
+  fs.writeFileSync(filePath, lines.join('\n') + '\n', 'utf8');
+}
+
 async function upsertBestand(sb, rows) {
   const batchSize = 100;
   for (let i = 0; i < rows.length; i += batchSize) {
@@ -248,6 +270,13 @@ async function main() {
     if (unmatched.length) {
       console.warn(`⚠️  ${unmatched.length} KBA-Zeilen konnten keinem Kreis zugeordnet werden:`);
       unmatched.forEach(r => console.warn('   -', r.name, r.ars || ''));
+    }
+
+    if (csvOutPath) {
+      writeCsv(csvOutPath, bestandRows);
+      console.log(`\n✅ CSV geschrieben: ${csvOutPath} (${bestandRows.length} Zeilen)`);
+      console.log('   Import in Supabase: Table Editor → "kennzeichen_bestand" → "Insert" → "Import data from CSV".');
+      return;
     }
 
     if (dryRun) {
