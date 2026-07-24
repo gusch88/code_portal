@@ -33,7 +33,7 @@ const dryRun = rawArgs.includes('--dry-run');
 const inspect = rawArgs.includes('--inspect');
 const csvIdx = rawArgs.indexOf('--csv');
 const csvOutPath = csvIdx !== -1 ? rawArgs[csvIdx + 1] : null;
-const positional = rawArgs.filter((a, i) => !a.startsWith('--') && i !== csvIdx + 1);
+const positional = rawArgs.filter((a, i) => !a.startsWith('--') && (csvIdx === -1 || i !== csvIdx + 1));
 const [xlsxPath, yearArg] = positional;
 
 if (!xlsxPath || !fs.existsSync(xlsxPath)) {
