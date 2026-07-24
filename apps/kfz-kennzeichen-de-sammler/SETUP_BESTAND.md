@@ -104,6 +104,21 @@ node import-bestand.js fz1_2026.xlsx 2026 --dry-run
 Der Dry-Run zeigt dieselbe Konsolenausgabe (inkl. `unmatched`-Warnungen),
 schreibt aber nichts in Supabase.
 
+### Falls "Konnte keine Header-Zeile finden" erscheint
+
+Das reale Spalten-Layout der KBA-Datei konnte beim Bau dieses Skripts nicht
+geprüft werden (kein Internetzugang zu kba.de in der Entwicklungsumgebung).
+Falls der Import mit diesem Fehler abbricht, zeigt der Inspect-Modus die
+Rohdaten aller Tabellenblätter an, ohne zu parsen:
+
+```bash
+node import-bestand.js fz1_2026.xlsx --inspect
+```
+
+Die Ausgabe (Tabellenblattnamen + erste 15 Zeilen jedes Blatts) einfach
+weitergeben, dann lässt sich die Spalten-/Header-Erkennung im Skript gezielt
+anpassen.
+
 ### Was das Skript inhaltlich macht
 
 1. Liest die lokale `kreise.geojson` ein — die kennt zu jedem der 409

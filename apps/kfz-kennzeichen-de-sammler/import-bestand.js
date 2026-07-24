@@ -7,6 +7,11 @@
  * Usage:
  *   node import-bestand.js <pfad-zur-xlsx> <jahr> [--dry-run]
  *   node import-bestand.js fz1_2026.xlsx 2026 --dry-run
+ *
+ *   node import-bestand.js <pfad-zur-xlsx> --inspect
+ *     Zeigt Tabellenblätter + erste Zeilen roh an, ohne zu parsen — hilft,
+ *     die Spaltennamen/Header-Position herauszufinden, falls das reale
+ *     KBA-Layout von der erwarteten Struktur abweicht.
  */
 
 require('dotenv').config();
@@ -20,6 +25,7 @@ const SUPABASE_SERVICE_ROLE = process.env.SUPABASE_SERVICE_ROLE;
 
 const args = process.argv.slice(2);
 const dryRun = args.includes('--dry-run');
+const inspect = args.includes('--inspect');
 const positional = args.filter(a => !a.startsWith('--'));
 const [xlsxPath, yearArg] = positional;
 
@@ -28,15 +34,31 @@ if (!xlsxPath || !fs.existsSync(xlsxPath)) {
   console.error('Usage: node import-bestand.js <pfad-zur-xlsx> <jahr> [--dry-run]');
   process.exit(1);
 }
-const sourceYear = parseInt(yearArg, 10);
-if (!sourceYear) {
-  console.error('Error: Jahr fehlt oder ist ungültig.');
-  console.error('Usage: node import-bestand.js <pfad-zur-xlsx> <jahr> [--dry-run]');
-  process.exit(1);
+
+async function inspectFile(filePath) {
+  const workbook = new ExcelJS.Workbook();
+  await workbook.xlsx.readFile(filePath);
+  console.log(`📄 ${workbook.worksheets.length} Tabellenblatt/-blätter gefunden:\n`);
+  workbook.worksheets.forEach(ws => {
+    const rows = sheetToRows(ws);
+    console.log(`── "${ws.name}" (${rows.length} Zeilen) ──`);
+    rows.slice(0, 15).forEach((r, i) => console.log(`  [${i}]`, JSON.stringify(r)));
+    console.log('');
+  });
 }
-if (!dryRun && (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE)) {
-  console.error('Error: SUPABASE_URL and SUPABASE_SERVICE_ROLE must be set in .env (nicht der anon-Key — siehe SETUP_BESTAND.md).');
-  process.exit(1);
+
+let sourceYear;
+if (!inspect) {
+  sourceYear = parseInt(yearArg, 10);
+  if (!sourceYear) {
+    console.error('Error: Jahr fehlt oder ist ungültig.');
+    console.error('Usage: node import-bestand.js <pfad-zur-xlsx> <jahr> [--dry-run]');
+    process.exit(1);
+  }
+  if (!dryRun && (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE)) {
+    console.error('Error: SUPABASE_URL and SUPABASE_SERVICE_ROLE must be set in .env (nicht der anon-Key — siehe SETUP_BESTAND.md).');
+    process.exit(1);
+  }
 }
 
 // Von KBA verwendete Präfixe/Suffixe, die die geojson-Namen nicht führen.
@@ -88,11 +110,7 @@ function findHeader(rows) {
   return null;
 }
 
-async function parseFZ1(filePath) {
-  const workbook = new ExcelJS.Workbook();
-  await workbook.xlsx.readFile(filePath);
-  const worksheet = workbook.worksheets[0];
-
+function sheetToRows(worksheet) {
   const rows = [];
   worksheet.eachRow({ includeEmpty: true }, sheetRow => {
     const arr = [];
@@ -101,26 +119,38 @@ async function parseFZ1(filePath) {
     });
     rows.push(arr);
   });
+  return rows;
+}
 
-  const header = findHeader(rows);
-  if (!header) {
-    throw new Error('Konnte keine Header-Zeile mit getrennter Zulassungsbezirk- und Bestand-Spalte finden — Layout der XLSX prüfen.');
-  }
-  const { headerIdx, nameCol, arsCol, bestandCol } = header;
+// KBA-Exporte haben teils mehrere Tabellenblätter (z.B. ein Deckblatt/
+// Erläuterungen vor der eigentlichen Datentabelle) — alle Sheets nach der
+// ersten Zeile durchsuchen, die getrennte Name- und Bestand-Spalten hat.
+async function parseFZ1(filePath) {
+  const workbook = new ExcelJS.Workbook();
+  await workbook.xlsx.readFile(filePath);
 
-  const out = [];
-  for (let i = headerIdx + 1; i < rows.length; i++) {
-    const row = rows[i];
-    if (!row || !row[nameCol]) continue;
-    const bestand = Number(row[bestandCol]);
-    if (!bestand || Number.isNaN(bestand)) continue;
-    out.push({
-      name: String(row[nameCol]).trim(),
-      ars: arsCol !== -1 && row[arsCol] ? String(row[arsCol]).trim() : null,
-      bestand,
-    });
+  for (const worksheet of workbook.worksheets) {
+    const rows = sheetToRows(worksheet);
+    const header = findHeader(rows);
+    if (!header) continue;
+
+    const { headerIdx, nameCol, arsCol, bestandCol } = header;
+    const out = [];
+    for (let i = headerIdx + 1; i < rows.length; i++) {
+      const row = rows[i];
+      if (!row || !row[nameCol]) continue;
+      const bestand = Number(row[bestandCol]);
+      if (!bestand || Number.isNaN(bestand)) continue;
+      out.push({
+        name: String(row[nameCol]).trim(),
+        ars: arsCol !== -1 && row[arsCol] ? String(row[arsCol]).trim() : null,
+        bestand,
+      });
+    }
+    if (out.length) return out;
   }
-  return out;
+
+  throw new Error('Konnte in keinem Tabellenblatt eine Header-Zeile mit getrennter Zulassungsbezirk- und Bestand-Spalte finden. Führe "node import-bestand.js <datei> --inspect" aus und schau dir die echten Spaltenüberschriften an.');
 }
 
 function matchKreis(row, kreise) {
@@ -183,6 +213,11 @@ async function upsertBestand(sb, rows) {
 
 async function main() {
   try {
+    if (inspect) {
+      await inspectFile(xlsxPath);
+      return;
+    }
+
     console.log(`⚙️  Lese kreise.geojson und ${xlsxPath}...`);
     const kreise = loadKreise();
     const fz1Rows = await parseFZ1(xlsxPath);
